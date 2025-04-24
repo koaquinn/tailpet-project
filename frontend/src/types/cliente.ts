@@ -1,6 +1,5 @@
 
 // src/types/cliente.ts
-
 export interface Cliente {
     id?: number;
     nombre: string;
