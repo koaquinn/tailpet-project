@@ -4,10 +4,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container, Typography, Box, Button, TextField, Grid, Paper,
   Divider, Switch, FormControlLabel, Alert, CircularProgress,
-  FormControl, InputLabel, Select, MenuItem, SelectChangeEvent
+  FormControl, InputLabel, Select, MenuItem, Snackbar,
+  FormHelperText
 } from '@mui/material';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import { es } from 'date-fns/locale';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
+import PetsIcon from '@mui/icons-material/Pets';
 import { 
   getMascota, createMascota, updateMascota, getEspecies, getRazas,
   Mascota, Especie, Raza 
@@ -21,6 +26,7 @@ interface FormErrors {
   raza?: string;
   fecha_nacimiento?: string;
   sexo?: string;
+  microchip?: string;
   [key: string]: string | undefined;
 }
 
@@ -29,20 +35,30 @@ const MascotaForm = () => {
   const navigate = useNavigate();
   const isEdit = Boolean(id);
   const [loading, setLoading] = useState(isEdit);
+  const [saving, setSaving] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  
+  const [notification, setNotification] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error';
+  }>({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
   
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [especies, setEspecies] = useState<Especie[]>([]);
   const [razas, setRazas] = useState<Raza[]>([]);
+  const [currentDate] = useState(new Date().toISOString().split('T')[0]);
   
   const [formData, setFormData] = useState<Mascota>({
     nombre: '',
     cliente: 0,
     especie: 0,
     raza: 0,
-    fecha_nacimiento: '',
+    fecha_nacimiento: currentDate,
     sexo: 'M',
     esterilizado: false,
     microchip: '',
@@ -77,11 +93,13 @@ const MascotaForm = () => {
           });
           
           // Cargar razas de la especie seleccionada
-          const razasData = await getRazas(mascotaData.especie);
-          setRazas(razasData.results || []);
+          if (mascotaData.especie) {
+            const razasData = await getRazas(mascotaData.especie);
+            setRazas(razasData.results || []);
+          }
         }
       } catch (error) {
-        setError('Error al cargar datos iniciales');
+        showNotification('Error al cargar datos iniciales', 'error');
         console.error(error);
       } finally {
         setDataLoading(false);
@@ -90,7 +108,7 @@ const MascotaForm = () => {
     };
     
     fetchInitialData();
-  }, [isEdit, id]);
+  }, [isEdit, id, currentDate]);
   
   // Cargar razas cuando cambia la especie
   useEffect(() => {
@@ -110,9 +128,18 @@ const MascotaForm = () => {
               ...prev,
               raza: 0
             }));
+            
+            // Limpiar error de raza si existe
+            if (errors.raza) {
+              setErrors(prev => ({
+                ...prev,
+                raza: undefined
+              }));
+            }
           }
         } catch (error) {
           console.error("Error al cargar razas:", error);
+          showNotification('Error al cargar las razas', 'error');
         }
       } else {
         setRazas([]);
@@ -132,6 +159,22 @@ const MascotaForm = () => {
     if (!formData.fecha_nacimiento) newErrors.fecha_nacimiento = 'La fecha de nacimiento es requerida';
     if (!formData.sexo) newErrors.sexo = 'El sexo es requerido';
     
+    // Validación de microchip (opcional pero con formato específico si se proporciona)
+    if (formData.microchip && formData.microchip.length > 0) {
+      if (formData.microchip.length < 8 || formData.microchip.length > 15) {
+        newErrors.microchip = 'El microchip debe tener entre 8 y 15 caracteres';
+      } else if (!/^[a-zA-Z0-9]+$/.test(formData.microchip)) {
+        newErrors.microchip = 'El microchip solo debe contener letras y números';
+      }
+    }
+    
+    // Validación de fecha (no futura)
+    const fechaNacimiento = new Date(formData.fecha_nacimiento);
+    const hoy = new Date();
+    if (fechaNacimiento > hoy) {
+      newErrors.fecha_nacimiento = 'La fecha de nacimiento no puede ser futura';
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -142,6 +185,14 @@ const MascotaForm = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    
+    // Limpiar error cuando el usuario comienza a escribir
+    if (errors[name as keyof FormErrors]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: undefined
+      }));
+    }
   };
   
   const handleSelectChange = (e: React.ChangeEvent<{ name?: string; value: unknown }>) => {
@@ -154,6 +205,47 @@ const MascotaForm = () => {
         ? Number(value)
         : value
     }));
+    
+    // Limpiar error cuando el usuario selecciona una opción
+    if (errors[name as keyof FormErrors]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: undefined
+      }));
+    }
+  };
+  
+  const handleDateChange = (date: Date | null) => {
+    if (date) {
+      const formattedDate = date.toISOString().split('T')[0];
+      setFormData(prev => ({
+        ...prev,
+        fecha_nacimiento: formattedDate
+      }));
+      
+      // Limpiar error de fecha
+      if (errors.fecha_nacimiento) {
+        setErrors(prev => ({
+          ...prev,
+          fecha_nacimiento: undefined
+        }));
+      }
+    }
+  };
+  
+  const showNotification = (message: string, severity: 'success' | 'error') => {
+    setNotification({
+      open: true,
+      message,
+      severity
+    });
+  };
+  
+  const handleCloseNotification = () => {
+    setNotification(prev => ({
+      ...prev,
+      open: false
+    }));
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -161,26 +253,26 @@ const MascotaForm = () => {
     
     if (!validateForm()) return;
     
-    setLoading(true);
-    setError(null);
-    setSuccess(false);
+    setSaving(true);
     
     try {
       if (isEdit && id) {
         await updateMascota(Number(id), formData);
+        showNotification('Mascota actualizada correctamente', 'success');
       } else {
         await createMascota(formData);
+        showNotification('Mascota creada correctamente', 'success');
       }
       
-      setSuccess(true);
+      // Redireccionar después de un breve retraso
       setTimeout(() => {
         navigate('/mascotas');
       }, 1500);
     } catch (error) {
-      setError('Error al guardar la mascota. Inténtalo de nuevo.');
+      showNotification('Error al guardar la mascota. Inténtalo de nuevo.', 'error');
       console.error('Error:', error);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
   
@@ -205,20 +297,13 @@ const MascotaForm = () => {
         </Button>
       </Box>
       
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
-      )}
-      
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          Mascota {isEdit ? 'actualizada' : 'creada'} correctamente.
-        </Alert>
-      )}
-      
       <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h5" component="h1" gutterBottom>
-          {isEdit ? 'Editar Mascota' : 'Nueva Mascota'}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <PetsIcon color="primary" sx={{ mr: 1, fontSize: 28 }} />
+          <Typography variant="h5" component="h1">
+            {isEdit ? 'Editar Mascota' : 'Nueva Mascota'}
+          </Typography>
+        </Box>
         <Divider sx={{ mb: 3 }} />
         
         <form onSubmit={handleSubmit}>
@@ -233,11 +318,13 @@ const MascotaForm = () => {
                 error={!!errors.nombre}
                 helperText={errors.nombre}
                 required
+                disabled={saving}
+                inputProps={{ maxLength: 100 }}
               />
             </Grid>
             
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.cliente} required>
+              <FormControl fullWidth error={!!errors.cliente} required disabled={saving}>
                 <InputLabel>Cliente (Dueño)</InputLabel>
                 <Select
                   name="cliente"
@@ -248,20 +335,16 @@ const MascotaForm = () => {
                   <MenuItem value="">Seleccionar cliente</MenuItem>
                   {clientes.map(cliente => (
                     <MenuItem key={cliente.id} value={cliente.id?.toString()}>
-                      {cliente.nombre} {cliente.apellido}
+                      {cliente.nombre} {cliente.apellido} - {cliente.rut}
                     </MenuItem>
                   ))}
                 </Select>
-                {errors.cliente && (
-                  <Typography color="error" variant="caption">
-                    {errors.cliente}
-                  </Typography>
-                )}
+                {errors.cliente && <FormHelperText>{errors.cliente}</FormHelperText>}
               </FormControl>
             </Grid>
             
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.especie} required>
+              <FormControl fullWidth error={!!errors.especie} required disabled={saving}>
                 <InputLabel>Especie</InputLabel>
                 <Select
                   name="especie"
@@ -276,23 +359,19 @@ const MascotaForm = () => {
                     </MenuItem>
                   ))}
                 </Select>
-                {errors.especie && (
-                  <Typography color="error" variant="caption">
-                    {errors.especie}
-                  </Typography>
-                )}
+                {errors.especie && <FormHelperText>{errors.especie}</FormHelperText>}
               </FormControl>
             </Grid>
             
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.raza} required>
+              <FormControl fullWidth error={!!errors.raza} required disabled={saving || !formData.especie}>
                 <InputLabel>Raza</InputLabel>
                 <Select
                   name="raza"
                   value={formData.raza ? formData.raza.toString() : ''}
                   label="Raza"
                   onChange={handleSelectChange}
-                  disabled={!formData.especie}
+                  disabled={!formData.especie || saving}
                 >
                   <MenuItem value="">Seleccionar raza</MenuItem>
                   {razas.map(raza => (
@@ -301,33 +380,34 @@ const MascotaForm = () => {
                     </MenuItem>
                   ))}
                 </Select>
-                {errors.raza && (
-                  <Typography color="error" variant="caption">
-                    {errors.raza}
-                  </Typography>
-                )}
+                {errors.raza && <FormHelperText>{errors.raza}</FormHelperText>}
+                {!formData.especie && <FormHelperText>Seleccione primero una especie</FormHelperText>}
               </FormControl>
             </Grid>
             
             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                type="date"
-                label="Fecha de Nacimiento"
-                name="fecha_nacimiento"
-                value={formData.fecha_nacimiento}
-                onChange={handleChange}
-                error={!!errors.fecha_nacimiento}
-                helperText={errors.fecha_nacimiento}
-                required
-                InputLabelProps={{
-                  shrink: true,
-                }}
-              />
+              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
+                <DatePicker
+                  label="Fecha de nacimiento"
+                  value={formData.fecha_nacimiento ? new Date(formData.fecha_nacimiento) : null}
+                  onChange={handleDateChange}
+                  format="dd/MM/yyyy"
+                  maxDate={new Date()} // No permitir fechas futuras
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      required: true,
+                      error: !!errors.fecha_nacimiento,
+                      helperText: errors.fecha_nacimiento,
+                      disabled: saving
+                    }
+                  }}
+                />
+              </LocalizationProvider>
             </Grid>
             
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.sexo} required>
+              <FormControl fullWidth error={!!errors.sexo} required disabled={saving}>
                 <InputLabel>Sexo</InputLabel>
                 <Select
                   name="sexo"
@@ -338,11 +418,7 @@ const MascotaForm = () => {
                   <MenuItem value="M">Macho</MenuItem>
                   <MenuItem value="H">Hembra</MenuItem>
                 </Select>
-                {errors.sexo && (
-                  <Typography color="error" variant="caption">
-                    {errors.sexo}
-                  </Typography>
-                )}
+                {errors.sexo && <FormHelperText>{errors.sexo}</FormHelperText>}
               </FormControl>
             </Grid>
             
@@ -353,6 +429,10 @@ const MascotaForm = () => {
                 name="microchip"
                 value={formData.microchip}
                 onChange={handleChange}
+                error={!!errors.microchip}
+                helperText={errors.microchip || 'Formato alfanumérico, 8-15 caracteres'}
+                disabled={saving}
+                inputProps={{ maxLength: 15 }}
               />
             </Grid>
             
@@ -364,6 +444,7 @@ const MascotaForm = () => {
                     onChange={handleChange}
                     name="esterilizado"
                     color="primary"
+                    disabled={saving}
                   />
                 }
                 label="Esterilizado"
@@ -378,6 +459,7 @@ const MascotaForm = () => {
                     onChange={handleChange}
                     name="activo"
                     color="primary"
+                    disabled={saving}
                   />
                 }
                 label="Mascota Activa"
@@ -385,10 +467,11 @@ const MascotaForm = () => {
             </Grid>
             
             <Grid item xs={12}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
                 <Button 
                   variant="outlined" 
                   onClick={() => navigate('/mascotas')}
+                  disabled={saving}
                 >
                   Cancelar
                 </Button>
@@ -396,16 +479,31 @@ const MascotaForm = () => {
                   type="submit" 
                   variant="contained" 
                   color="primary"
-                  startIcon={<SaveIcon />}
-                  disabled={loading}
+                  startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+                  disabled={saving}
                 >
-                  {loading ? 'Guardando...' : isEdit ? 'Actualizar' : 'Guardar'}
+                  {saving ? 'Guardando...' : isEdit ? 'Actualizar' : 'Guardar'}
                 </Button>
               </Box>
             </Grid>
           </Grid>
         </form>
       </Paper>
+      
+      <Snackbar 
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseNotification} 
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };
