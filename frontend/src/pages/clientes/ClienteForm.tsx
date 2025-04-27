@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container, Typography, Box, Button, TextField, Grid, Paper,
-  Divider, Switch, FormControlLabel, Alert, CircularProgress
+  Divider, Switch, FormControlLabel, Alert, CircularProgress,
+  Snackbar
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
@@ -23,8 +24,16 @@ const ClienteForm = () => {
   const navigate = useNavigate();
   const isEdit = Boolean(id);
   const [loading, setLoading] = useState(isEdit);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [notification, setNotification] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error';
+  }>({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
   
   const [formData, setFormData] = useState<Cliente>({
     nombre: '',
@@ -51,7 +60,7 @@ const ClienteForm = () => {
             activo: data.activo !== undefined ? data.activo : true
           });
         } catch (error) {
-          setError('Error al cargar los datos del cliente');
+          showNotification('Error al cargar los datos del cliente', 'error');
           console.error(error);
         } finally {
           setLoading(false);
@@ -67,9 +76,15 @@ const ClienteForm = () => {
     
     if (!formData.nombre.trim()) newErrors.nombre = 'El nombre es requerido';
     if (!formData.apellido.trim()) newErrors.apellido = 'El apellido es requerido';
-    if (!formData.rut.trim()) newErrors.rut = 'El RUT es requerido';
     
-    // Validación básica de email
+    // Validación de RUT chileno (formato básico)
+    if (!formData.rut.trim()) {
+      newErrors.rut = 'El RUT es requerido';
+    } else if (!/^[0-9]{7,8}-[0-9kK]$/.test(formData.rut)) {
+      newErrors.rut = 'Formato inválido. Ej: 12345678-9';
+    }
+    
+    // Validación de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim()) {
       newErrors.email = 'El email es requerido';
@@ -77,7 +92,12 @@ const ClienteForm = () => {
       newErrors.email = 'Email inválido';
     }
     
-    if (!formData.telefono.trim()) newErrors.telefono = 'El teléfono es requerido';
+    // Validación de teléfono
+    if (!formData.telefono.trim()) {
+      newErrors.telefono = 'El teléfono es requerido';
+    } else if (!/^[+]?[0-9]{9,12}$/.test(formData.telefono)) {
+      newErrors.telefono = 'Formato inválido. Ej: +56912345678';
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -89,6 +109,29 @@ const ClienteForm = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    
+    // Limpiar error al empezar a escribir
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: undefined
+      }));
+    }
+  };
+  
+  const showNotification = (message: string, severity: 'success' | 'error') => {
+    setNotification({
+      open: true,
+      message,
+      severity
+    });
+  };
+  
+  const handleCloseNotification = () => {
+    setNotification(prev => ({
+      ...prev,
+      open: false
+    }));
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,26 +139,26 @@ const ClienteForm = () => {
     
     if (!validateForm()) return;
     
-    setLoading(true);
-    setError(null);
-    setSuccess(false);
+    setSaving(true);
     
     try {
       if (isEdit && id) {
         await updateCliente(Number(id), formData);
+        showNotification('Cliente actualizado correctamente', 'success');
       } else {
         await createCliente(formData);
+        showNotification('Cliente creado correctamente', 'success');
       }
       
-      setSuccess(true);
+      // Redireccionar después de un breve retraso
       setTimeout(() => {
         navigate('/clientes');
       }, 1500);
     } catch (error) {
-      setError('Error al guardar el cliente. Inténtalo de nuevo.');
+      showNotification('Error al guardar el cliente. Inténtalo de nuevo.', 'error');
       console.error('Error:', error);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
   
@@ -140,16 +183,6 @@ const ClienteForm = () => {
         </Button>
       </Box>
       
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
-      )}
-      
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          Cliente {isEdit ? 'actualizado' : 'creado'} correctamente.
-        </Alert>
-      )}
-      
       <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
         <Typography variant="h5" component="h1" gutterBottom>
           {isEdit ? 'Editar Cliente' : 'Nuevo Cliente'}
@@ -168,6 +201,8 @@ const ClienteForm = () => {
                 error={!!errors.nombre}
                 helperText={errors.nombre}
                 required
+                disabled={saving}
+                inputProps={{ maxLength: 100 }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -180,6 +215,8 @@ const ClienteForm = () => {
                 error={!!errors.apellido}
                 helperText={errors.apellido}
                 required
+                disabled={saving}
+                inputProps={{ maxLength: 100 }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -190,8 +227,10 @@ const ClienteForm = () => {
                 value={formData.rut}
                 onChange={handleChange}
                 error={!!errors.rut}
-                helperText={errors.rut}
+                helperText={errors.rut || 'Formato: 12345678-9'}
                 required
+                disabled={saving}
+                inputProps={{ maxLength: 12 }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -202,8 +241,10 @@ const ClienteForm = () => {
                 value={formData.telefono}
                 onChange={handleChange}
                 error={!!errors.telefono}
-                helperText={errors.telefono}
+                helperText={errors.telefono || 'Ej: +56912345678'}
                 required
+                disabled={saving}
+                inputProps={{ maxLength: 15 }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -217,6 +258,8 @@ const ClienteForm = () => {
                 error={!!errors.email}
                 helperText={errors.email}
                 required
+                disabled={saving}
+                inputProps={{ maxLength: 100 }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -227,6 +270,7 @@ const ClienteForm = () => {
                     onChange={handleChange}
                     name="activo"
                     color="primary"
+                    disabled={saving}
                   />
                 }
                 label="Cliente Activo"
@@ -238,6 +282,7 @@ const ClienteForm = () => {
                 <Button 
                   variant="outlined" 
                   onClick={() => navigate('/clientes')}
+                  disabled={saving}
                 >
                   Cancelar
                 </Button>
@@ -245,16 +290,31 @@ const ClienteForm = () => {
                   type="submit" 
                   variant="contained" 
                   color="primary"
-                  startIcon={<SaveIcon />}
-                  disabled={loading}
+                  startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+                  disabled={saving}
                 >
-                  {loading ? 'Guardando...' : isEdit ? 'Actualizar' : 'Guardar'}
+                  {saving ? 'Guardando...' : isEdit ? 'Actualizar' : 'Guardar'}
                 </Button>
               </Box>
             </Grid>
           </Grid>
         </form>
       </Paper>
+      
+      <Snackbar 
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseNotification} 
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };
