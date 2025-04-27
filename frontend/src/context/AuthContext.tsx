@@ -49,10 +49,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
   }, []);
 
-  const login = async (username: string, password: string) => {
+  const login = async (credential: string, password: string) => {
     setIsLoading(true);
     try {
-      const { access, refresh, user: userData } = await authApi.login({ username, password });
+      const { access, refresh, user: userData } = await authApi.login({ credential, password });
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
       setAuthHeader(access);
