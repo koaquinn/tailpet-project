@@ -10,7 +10,8 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  styled
+  styled,
+  colors
 } from '@mui/material';
 import { Link, useLocation } from 'react-router-dom';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -23,6 +24,7 @@ import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import LogoutIcon from '@mui/icons-material/Logout'; //
 import { useAuth } from '../../context/AuthContext';
 
 const drawerWidth = 240;
@@ -60,7 +62,7 @@ const menuItems: MenuEntry[] = [
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ open, handleDrawerClose }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
 
   // Filtra: rutas sin roles ([]) o donde user.rol esté incluído
@@ -68,6 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, handleDrawerClose }) => {
     item.roles.length === 0 ||
     (!!user && item.roles.includes(user.rol))
   );
+
 
   return (
     <Drawer
@@ -123,6 +126,36 @@ const Sidebar: React.FC<SidebarProps> = ({ open, handleDrawerClose }) => {
             </ListItem>
           );
         })}
+      </List>
+      
+      <Box flexGrow={1} />
+      <Divider />
+      <List>
+        <ListItem disablePadding>
+          <ListItemButton onClick={logout}
+          
+          sx={{ 
+            '&:hover':{
+              backgroundColor:'#6366F1',
+              '& .MuiListItemText-primary': {
+                color: 'white',
+              },
+              '& .MuiListItemIcon-root': {
+                color: 'white',
+              },
+            },
+          }}
+          >
+            <ListItemIcon sx={{ color: 'black'}}>
+              <LogoutIcon />
+            </ListItemIcon>
+            <ListItemText primary="Cerrar Sesión" 
+              primaryTypographyProps={{
+                fontWeight: 'normal', 
+              }}
+              />
+          </ListItemButton>
+        </ListItem>
       </List>
     </Drawer>
   );
