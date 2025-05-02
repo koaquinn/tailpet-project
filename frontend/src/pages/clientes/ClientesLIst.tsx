@@ -41,9 +41,6 @@ const ClientesList = () => {
     severity: 'success'
   });
   
-  // Confirmación de eliminación
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [clienteToDelete, setClienteToDelete] = useState<number | null>(null);
   
   const fetchClientes = async () => {
     setLoading(true);
@@ -102,27 +99,6 @@ const ClientesList = () => {
   
   const handleCloseFilterMenu = () => {
     setFilterAnchorEl(null);
-  };
-  
-  const handleDeleteCliente = async (id: number) => {
-    try {
-      await deleteCliente(id);
-      // Actualizar la lista después de eliminar
-      setClientes(prevClientes => prevClientes.filter(cliente => cliente.id !== id));
-      
-      setNotification({
-        open: true,
-        message: 'Cliente eliminado correctamente',
-        severity: 'success'
-      });
-    } catch (error) {
-      console.error("Error al eliminar cliente:", error);
-      setNotification({
-        open: true,
-        message: 'Error al eliminar el cliente',
-        severity: 'error'
-      });
-    }
   };
   
   const handleCloseNotification = () => {
@@ -259,7 +235,7 @@ const ClientesList = () => {
                         <Tooltip title="Editar cliente">
                           <IconButton 
                             component={Link} 
-                            to={`/clientes/${cliente.id}`}
+                            to={`/clientes/editar/${cliente.id}`}
                             color="primary"
                             size="small"
                           >

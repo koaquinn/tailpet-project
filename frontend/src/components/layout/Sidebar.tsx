@@ -10,8 +10,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  styled,
-  colors
+  styled
 } from '@mui/material';
 import { Link, useLocation } from 'react-router-dom';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -51,14 +50,14 @@ interface MenuEntry {
 
 const menuItems: MenuEntry[] = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/', roles: [] },
-  { text: 'Clientes',  icon: <PeopleIcon />, path: '/clientes',   roles: ['ADMIN', 'RECEPCIONISTA'] },
-  { text: 'Mascotas',  icon: <PetsIcon />,  path: '/mascotas',    roles: ['ADMIN', 'RECEPCIONISTA', 'VETERINARIO'] },
-  { text: 'Citas',     icon: <EventNoteIcon />, path: '/citas',     roles: ['ADMIN', 'RECEPCIONISTA', 'VETERINARIO'] },
+  { text: 'Clientes', icon: <PeopleIcon />, path: '/clientes', roles: ['ADMIN', 'RECEPCIONISTA'] },
+  { text: 'Mascotas', icon: <PetsIcon />, path: '/mascotas', roles: ['ADMIN', 'RECEPCIONISTA', 'VETERINARIO'] },
+  { text: 'Citas', icon: <EventNoteIcon />, path: '/citas', roles: ['ADMIN', 'RECEPCIONISTA', 'VETERINARIO'] },
   { text: 'Historiales', icon: <HealthAndSafetyIcon />, path: '/historiales', roles: ['ADMIN', 'VETERINARIO'] },
   { text: 'Inventario', icon: <MedicationIcon />, path: '/inventario', roles: ['ADMIN', 'VETERINARIO'] },
   { text: 'Facturación', icon: <ReceiptIcon />, path: '/facturacion', roles: ['ADMIN', 'RECEPCIONISTA'] },
-  { text: 'Reportes',  icon: <BarChartIcon />, path: '/reportes',    roles: ['ADMIN'] },
-  { text: 'Usuarios',  icon: <AdminPanelSettingsIcon />, path: '/admin/usuarios', roles: ['ADMIN'] },
+  { text: 'Reportes', icon: <BarChartIcon />, path: '/reportes', roles: ['ADMIN'] },
+  { text: 'Usuarios', icon: <AdminPanelSettingsIcon />, path: '/admin/usuarios', roles: ['ADMIN'] },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ open, handleDrawerClose }) => {
@@ -115,45 +114,55 @@ const Sidebar: React.FC<SidebarProps> = ({ open, handleDrawerClose }) => {
                 <ListItemIcon sx={{ color: isActive ? 'primary.main' : 'inherit' }}>
                   {item.icon}
                 </ListItemIcon>
-                <ListItemText
-                  primary={item.text}
-                  primaryTypographyProps={{
-                    fontWeight: isActive ? 'bold' : 'normal',
-                    color: isActive ? 'primary.main' : 'inherit',
-                  }}
-                />
+                <ListItemButton>
+                  <ListItemText
+                    primary={item.text}
+                    slotProps={{
+                      primary: {
+                        sx: {
+                          fontWeight: isActive ? 'bold' : 'normal',
+                          color: isActive ? 'primary.main' : 'inherit',
+                        },
+                      },
+                    }}
+                  />
+                </ListItemButton>
+
               </ListItemButton>
             </ListItem>
           );
         })}
       </List>
-      
+
       <Box flexGrow={1} />
       <Divider />
       <List>
         <ListItem disablePadding>
           <ListItemButton onClick={logout}
-          
-          sx={{ 
-            '&:hover':{
-              backgroundColor:'#6366F1',
-              '& .MuiListItemText-primary': {
-                color: 'white',
+
+            sx={{
+              '&:hover': {
+                backgroundColor: '#6366F1',
+                '& .MuiListItemText-primary': {
+                  color: 'white',
+                },
+                '& .MuiListItemIcon-root': {
+                  color: 'white',
+                },
               },
-              '& .MuiListItemIcon-root': {
-                color: 'white',
-              },
-            },
-          }}
+            }}
           >
-            <ListItemIcon sx={{ color: 'black'}}>
+            <ListItemIcon sx={{ color: 'black' }}>
               <LogoutIcon />
             </ListItemIcon>
-            <ListItemText primary="Cerrar Sesión" 
-              primaryTypographyProps={{
-                fontWeight: 'normal', 
+            <ListItemText
+              primary="Cerrar Sesión"
+              slotProps={{
+                primary: {
+                  sx: { fontWeight: 'normal' },
+                },
               }}
-              />
+            />
           </ListItemButton>
         </ListItem>
       </List>

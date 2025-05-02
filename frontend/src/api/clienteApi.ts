@@ -42,13 +42,3 @@ export const updateCliente = async (id: number, clienteData: Cliente): Promise<C
     throw error;
   }
 };
-
-export const deleteCliente = async (id: number): Promise<boolean> => {
-  try {
-    await axios.delete(`${API_URL}/clientes/clientes/${id}/`);
-    return true;
-  } catch (error) {
-    console.error(`Error deleting cliente ${id}:`, error);
-    throw error;
-  }
-};
