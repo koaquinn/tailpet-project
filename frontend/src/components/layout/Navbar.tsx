@@ -96,18 +96,36 @@ const Navbar: React.FC<NavbarProps> = ({ open, handleDrawerOpen, user }) => {
                 sx={{ borderColor: 'white', color: 'white', fontSize: '0.7rem' }}
               />
             </Box>
-
-            <Tooltip title="Opciones de usuario">
-              <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                <Avatar sx={{ bgcolor: 'secondary.main' }}>
-                  {user.first_name
-                    ? user.first_name[0]
-                    : user.username
-                    ? user.username[0]
-                    : 'U'}
-                </Avatar>
-              </IconButton>
-            </Tooltip>
+            
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                px: 1.5,
+                py: 0.5,
+                bgcolor: 'rgba(255, 255, 255, 0.15)', 
+                borderRadius: '999px', 
+                gap: 1,
+                cursor: 'pointer',
+                transition: 'background-color 0.3s',
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.25)',
+                },
+              }}
+              onClick={handleOpenUserMenu}
+            >
+              <Avatar sx={{ bgcolor: 'secondary.main', width: 32, height: 32, fontSize: 16 }}>
+                {user.first_name ? user.first_name[0] : user.username ? user.username[0] : 'U'}
+              </Avatar>
+              <Typography
+                variant="body2"
+                color="inherit"
+                sx={{ display: { xs: 'none', sm: 'block' } }}
+              >
+                {user.username}
+              </Typography>
+            </Box>
+          
 
             <Menu
               sx={{ mt: '45px' }}
