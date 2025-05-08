@@ -8,7 +8,8 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
-import { getCliente, createCliente, updateCliente, Cliente } from '../../api/clienteApi';
+import { getCliente, createCliente, updateCliente, Cliente} from '../../api/clienteApi';
+import './ClienteForm.css'; // Importamos el CSS
 
 interface FormErrors {
   nombre?: string;
@@ -45,7 +46,7 @@ const ClienteForm = () => {
   });
   
   const [errors, setErrors] = useState<FormErrors>({});
-  
+
   useEffect(() => {
     const fetchCliente = async () => {
       if (isEdit && id) {
@@ -77,14 +78,12 @@ const ClienteForm = () => {
     if (!formData.nombre.trim()) newErrors.nombre = 'El nombre es requerido';
     if (!formData.apellido.trim()) newErrors.apellido = 'El apellido es requerido';
     
-    // Validación de RUT chileno (formato básico)
     if (!formData.rut.trim()) {
       newErrors.rut = 'El RUT es requerido';
     } else if (!/^[0-9]{7,8}-[0-9kK]$/.test(formData.rut)) {
       newErrors.rut = 'Formato inválido. Ej: 12345678-9';
     }
     
-    // Validación de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email.trim()) {
       newErrors.email = 'El email es requerido';
@@ -92,7 +91,6 @@ const ClienteForm = () => {
       newErrors.email = 'Email inválido';
     }
     
-    // Validación de teléfono
     if (!formData.telefono.trim()) {
       newErrors.telefono = 'El teléfono es requerido';
     } else if (!/^[+]?[0-9]{9,12}$/.test(formData.telefono)) {
@@ -110,7 +108,6 @@ const ClienteForm = () => {
       [name]: type === 'checkbox' ? checked : value
     }));
     
-    // Limpiar error al empezar a escribir
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -150,7 +147,6 @@ const ClienteForm = () => {
         showNotification('Cliente creado correctamente', 'success');
       }
       
-      // Redireccionar después de un breve retraso
       setTimeout(() => {
         navigate('/clientes');
       }, 1500);
@@ -164,7 +160,7 @@ const ClienteForm = () => {
   
   if (loading && isEdit) {
     return (
-      <Container>
+      <Container className="cliente-form-container">
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
           <CircularProgress />
         </Box>
@@ -173,18 +169,19 @@ const ClienteForm = () => {
   }
   
   return (
-    <Container maxWidth="md">
+    <Container maxWidth="md" className="cliente-form-container">
       <Box sx={{ mb: 4 }}>
         <Button 
           startIcon={<ArrowBackIcon />} 
           onClick={() => navigate('/clientes')}
+          className="cliente-form-button cliente-form-button-outline"
         >
           Volver a lista de clientes
         </Button>
       </Box>
       
-      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h5" component="h1" gutterBottom>
+      <Paper className="cliente-form-card">
+        <Typography variant="h5" component="h1" className="cliente-form-title" gutterBottom>
           {isEdit ? 'Editar Cliente' : 'Nuevo Cliente'}
         </Typography>
         <Divider sx={{ mb: 3 }} />
@@ -203,6 +200,18 @@ const ClienteForm = () => {
                 required
                 disabled={saving}
                 inputProps={{ maxLength: 100 }}
+                className="cliente-form-field"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '0.5rem',
+                    backgroundColor: '#f3f4f6',
+                    '&:hover fieldset': { borderColor: '#d1d5db' },
+                    '&.Mui-focused fieldset': { 
+                      borderColor: '#6366f1', 
+                      boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)'
+                    }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -217,6 +226,18 @@ const ClienteForm = () => {
                 required
                 disabled={saving}
                 inputProps={{ maxLength: 100 }}
+                className="cliente-form-field"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '0.5rem',
+                    backgroundColor: '#f3f4f6',
+                    '&:hover fieldset': { borderColor: '#d1d5db' },
+                    '&.Mui-focused fieldset': { 
+                      borderColor: '#6366f1', 
+                      boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)'
+                    }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -231,6 +252,18 @@ const ClienteForm = () => {
                 required
                 disabled={saving}
                 inputProps={{ maxLength: 12 }}
+                className="cliente-form-field"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '0.5rem',
+                    backgroundColor: '#f3f4f6',
+                    '&:hover fieldset': { borderColor: '#d1d5db' },
+                    '&.Mui-focused fieldset': { 
+                      borderColor: '#6366f1', 
+                      boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)'
+                    }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -245,6 +278,18 @@ const ClienteForm = () => {
                 required
                 disabled={saving}
                 inputProps={{ maxLength: 15 }}
+                className="cliente-form-field"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '0.5rem',
+                    backgroundColor: '#f3f4f6',
+                    '&:hover fieldset': { borderColor: '#d1d5db' },
+                    '&.Mui-focused fieldset': { 
+                      borderColor: '#6366f1', 
+                      boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)'
+                    }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -260,6 +305,18 @@ const ClienteForm = () => {
                 required
                 disabled={saving}
                 inputProps={{ maxLength: 100 }}
+                className="cliente-form-field"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '0.5rem',
+                    backgroundColor: '#f3f4f6',
+                    '&:hover fieldset': { borderColor: '#d1d5db' },
+                    '&.Mui-focused fieldset': { 
+                      borderColor: '#6366f1', 
+                      boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)'
+                    }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -271,6 +328,7 @@ const ClienteForm = () => {
                     name="activo"
                     color="primary"
                     disabled={saving}
+                    className="cliente-form-switch"
                   />
                 }
                 label="Cliente Activo"
@@ -283,6 +341,7 @@ const ClienteForm = () => {
                   variant="outlined" 
                   onClick={() => navigate('/clientes')}
                   disabled={saving}
+                  className="cliente-form-button cliente-form-button-outline"
                 >
                   Cancelar
                 </Button>
@@ -290,8 +349,9 @@ const ClienteForm = () => {
                   type="submit" 
                   variant="contained" 
                   color="primary"
-                  startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+                  startIcon={saving ? <CircularProgress size={20} className="cliente-form-spinner" /> : <SaveIcon />}
                   disabled={saving}
+                  className="cliente-form-button cliente-form-button-primary"
                 >
                   {saving ? 'Guardando...' : isEdit ? 'Actualizar' : 'Guardar'}
                 </Button>
@@ -310,6 +370,7 @@ const ClienteForm = () => {
         <Alert 
           onClose={handleCloseNotification} 
           severity={notification.severity}
+          className="cliente-form-notification"
           sx={{ width: '100%' }}
         >
           {notification.message}

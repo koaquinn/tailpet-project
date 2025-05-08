@@ -14,8 +14,10 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { getClientes, Cliente, deleteCliente } from '../../api/clienteApi';
+import { useNavigate } from 'react-router-dom';
 
 const ClientesList = () => {
+  const navigate = useNavigate();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [filteredClientes, setFilteredClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
@@ -217,7 +219,12 @@ const ClientesList = () => {
                 </TableRow>
               ) : paginatedClientes.length > 0 ? (
                 paginatedClientes.map((cliente) => (
-                  <TableRow key={cliente.id} hover>
+                  <TableRow 
+                    key={cliente.id} 
+                    hover
+                    onClick={() => navigate(`/clientes/${cliente.id}/mascotas`)}
+                    sx={{ cursor: 'pointer' }}
+                  >
                     <TableCell>{cliente.nombre}</TableCell>
                     <TableCell>{cliente.apellido}</TableCell>
                     <TableCell>{cliente.rut}</TableCell>
@@ -238,6 +245,7 @@ const ClientesList = () => {
                             to={`/clientes/editar/${cliente.id}`}
                             color="primary"
                             size="small"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <EditIcon />
                           </IconButton>

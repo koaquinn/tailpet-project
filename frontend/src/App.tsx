@@ -16,7 +16,7 @@ import ClienteForm from './pages/clientes/ClienteForm';
 import MascotasList from './pages/mascotas/MascotasList';
 import MascotaForm from './pages/mascotas/MascotaForm';
 import UsersPage from './pages/admin/UserPage';
-
+import ClienteMascotas from './pages/clientes/ClienteMascota';
 // Constantes de roles
 const ADMIN = 'ADMIN';
 const VETERINARIO = 'VETERINARIO';
@@ -65,6 +65,15 @@ function App() {
               element={
                 <ProtectedRoute requiredRoles={[ADMIN, RECEPCIONISTA]}>
                   <ClienteForm />
+                </ProtectedRoute>
+              }
+            />
+            {/* Ruta para ver las mascotas de un cliente */}
+            <Route
+              path="clientes/:id/mascotas"
+              element={
+                <ProtectedRoute requiredRoles={[ADMIN, RECEPCIONISTA, VETERINARIO]}>
+                  <ClienteMascotas />
                 </ProtectedRoute>
               }
             />

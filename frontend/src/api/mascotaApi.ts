@@ -86,6 +86,16 @@ export const getEspecie = async (id: number): Promise<Especie> => {
   }
 };
 
+export const getMascotasByCliente = async (clienteId: number): Promise<MascotaResponse> => {
+  try {
+    const response = await axios.get(`${API_URL}/mascotas/mascotas/?cliente=${clienteId}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching mascotas for cliente ${clienteId}:`, error);
+    throw error;
+  }
+};
+
 // Razas
 export const getRazas = async (especieId?: number): Promise<RazaResponse> => {
   try {
