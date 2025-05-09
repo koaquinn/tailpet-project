@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { 
   Container, Typography, Button, Paper, Table, TableBody, 
   TableCell, TableContainer, TableHead, TableRow, Box,
-  TextField, InputAdornment, Chip, IconButton, Tooltip,
+  TextField, InputAdornment, Chip, IconButton,
   TablePagination, CircularProgress, FormControlLabel, 
   Switch, Alert, Snackbar, Menu, MenuItem
 } from '@mui/material';
@@ -42,7 +42,6 @@ const ClientesList = () => {
     message: '',
     severity: 'success'
   });
-  
   
   const fetchClientes = async () => {
     setLoading(true);
@@ -169,6 +168,7 @@ const ClientesList = () => {
             onClick={handleOpenFilterMenu}
             color={showOnlyActive ? "primary" : "default"}
             aria-label="opciones de filtro"
+            title="Opciones de filtro"
           >
             <FilterListIcon />
           </IconButton>
@@ -238,18 +238,18 @@ const ClientesList = () => {
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                        <Tooltip title="Editar cliente">
-                          <IconButton 
-                            component={Link} 
-                            to={`/clientes/editar/${cliente.id}`}
-                            color="primary"
-                            size="small"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                        <IconButton 
+                          component={Link} 
+                          to={`/clientes/editar/${cliente.id}`}
+                          color="primary"
+                          size="small"
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label="Editar cliente"
+                          title="Editar cliente"
+                        >
+                          <EditIcon />
+                        </IconButton>
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -299,8 +299,6 @@ const ClientesList = () => {
           {notification.message}
         </Alert>
       </Snackbar>
-      
-      {/* Aquí podría ir un diálogo de confirmación para eliminar clientes */}
     </Container>
   );
 };

@@ -267,30 +267,35 @@ const ClienteMascotas = () => {
                         />
                       </TableCell>
                       <TableCell align="center">
-                        <Tooltip title="Editar mascota">
+                        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                           <IconButton
+                            size="small"
                             color="primary"
                             onClick={() => navigate(`/mascotas/editar/${mascota.id}`)}
+                            aria-label="Editar mascota"
+                            title="Editar mascota"
                           >
                             <Edit />
                           </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Historial médico">
                           <IconButton
+                            size="small"
                             color="secondary"
                             onClick={() => navigate(`/mascotas/${mascota.id}/historial`)}
+                            aria-label="Historial médico"
+                            title="Historial médico"
                           >
                             <MedicalServices />
                           </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Vacunas">
                           <IconButton
+                            size="small"
                             color="info"
                             onClick={() => navigate(`/mascotas/${mascota.id}/vacunas`)}
+                            aria-label="Vacunas"
+                            title="Vacunas"
                           >
                             <Vaccines />
                           </IconButton>
-                        </Tooltip>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))

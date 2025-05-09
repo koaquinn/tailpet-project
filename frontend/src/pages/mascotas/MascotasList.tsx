@@ -16,7 +16,6 @@ import {
   InputAdornment,
   Chip,
   IconButton,
-  Tooltip,
   FormControl,
   InputLabel,
   Select,
@@ -225,11 +224,16 @@ const MascotasList = () => {
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <Tooltip title="Editar mascota">
-                        <IconButton component={Link} to={`/mascotas/${m.id}`} color="primary" size="small">
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
+                      <IconButton 
+                        component={Link} 
+                        to={`/mascotas/${m.id}`} 
+                        color="primary" 
+                        size="small"
+                        aria-label="Editar mascota"
+                        title="Editar mascota"
+                      >
+                        <EditIcon />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 );

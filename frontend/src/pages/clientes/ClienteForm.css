@@ -184,3 +184,53 @@ body, html {
     border-radius: 0.5rem !important;
   }
 }
+
+/* Solución definitiva para el corte de la tabla */
+.table-container-wrapper {
+  position: relative;
+  overflow: visible;
+  padding-bottom: 20px; /* Espacio para tooltips */
+}
+
+.table-container-fix {
+  position: static !important; /* Cambia de relative a static */
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.table-fix {
+  position: relative;
+  z-index: 1;
+}
+
+/* Tooltips que salen del contenedor */
+.MuiTooltip-popper {
+  z-index: 1500 !important;
+  position: absolute !important;
+}
+
+.MuiTooltip-tooltip {
+  transform: none !important;
+  margin: 0 !important;
+  position: absolute !important;
+}
+
+/* Celdas de acción */
+.action-cell {
+  position: relative;
+  z-index: 2;
+  background: white; /* Fondo sólido para evitar transparencias */
+}
+
+.action-buttons-container {
+  display: flex;
+  justify-content: center;
+  position: static;
+}
+
+/* Ajustes para el Paper contenedor */
+.MuiPaper-root.table-paper {
+  overflow: visible !important;
+  position: relative;
+  z-index: 1;
+}
