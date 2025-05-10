@@ -23,6 +23,7 @@ import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import LogoutIcon from '@mui/icons-material/Logout'; //
 import { useAuth } from '../../context/AuthContext';
 
 const drawerWidth = 240;
@@ -49,18 +50,18 @@ interface MenuEntry {
 
 const menuItems: MenuEntry[] = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/', roles: [] },
-  { text: 'Clientes',  icon: <PeopleIcon />, path: '/clientes',   roles: ['ADMIN', 'RECEPCIONISTA'] },
-  { text: 'Mascotas',  icon: <PetsIcon />,  path: '/mascotas',    roles: ['ADMIN', 'RECEPCIONISTA', 'VETERINARIO'] },
-  { text: 'Citas',     icon: <EventNoteIcon />, path: '/citas',     roles: ['ADMIN', 'RECEPCIONISTA', 'VETERINARIO'] },
+  { text: 'Clientes', icon: <PeopleIcon />, path: '/clientes', roles: ['ADMIN', 'RECEPCIONISTA'] },
+  { text: 'Mascotas', icon: <PetsIcon />, path: '/mascotas', roles: ['ADMIN', 'RECEPCIONISTA', 'VETERINARIO'] },
+  { text: 'Citas', icon: <EventNoteIcon />, path: '/citas', roles: ['ADMIN', 'RECEPCIONISTA', 'VETERINARIO'] },
   { text: 'Historiales', icon: <HealthAndSafetyIcon />, path: '/historiales', roles: ['ADMIN', 'VETERINARIO'] },
   { text: 'Inventario', icon: <MedicationIcon />, path: '/inventario', roles: ['ADMIN', 'VETERINARIO'] },
   { text: 'Facturación', icon: <ReceiptIcon />, path: '/facturacion', roles: ['ADMIN', 'RECEPCIONISTA'] },
-  { text: 'Reportes',  icon: <BarChartIcon />, path: '/reportes',    roles: ['ADMIN'] },
-  { text: 'Usuarios',  icon: <AdminPanelSettingsIcon />, path: '/admin/usuarios', roles: ['ADMIN'] },
+  { text: 'Reportes', icon: <BarChartIcon />, path: '/reportes', roles: ['ADMIN'] },
+  { text: 'Usuarios', icon: <AdminPanelSettingsIcon />, path: '/admin/usuarios', roles: ['ADMIN'] },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ open, handleDrawerClose }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
 
   // Filtra: rutas sin roles ([]) o donde user.rol esté incluído
@@ -68,6 +69,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, handleDrawerClose }) => {
     item.roles.length === 0 ||
     (!!user && item.roles.includes(user.rol))
   );
+
 
   return (
     <Drawer
@@ -112,17 +114,57 @@ const Sidebar: React.FC<SidebarProps> = ({ open, handleDrawerClose }) => {
                 <ListItemIcon sx={{ color: isActive ? 'primary.main' : 'inherit' }}>
                   {item.icon}
                 </ListItemIcon>
-                <ListItemText
-                  primary={item.text}
-                  primaryTypographyProps={{
-                    fontWeight: isActive ? 'bold' : 'normal',
-                    color: isActive ? 'primary.main' : 'inherit',
-                  }}
-                />
+                <ListItemButton>
+                  <ListItemText
+                    primary={item.text}
+                    slotProps={{
+                      primary: {
+                        sx: {
+                          fontWeight: isActive ? 'bold' : 'normal',
+                          color: isActive ? 'primary.main' : 'inherit',
+                        },
+                      },
+                    }}
+                  />
+                </ListItemButton>
+
               </ListItemButton>
             </ListItem>
           );
         })}
+      </List>
+
+      <Box flexGrow={1} />
+      <Divider />
+      <List>
+        <ListItem disablePadding>
+          <ListItemButton onClick={logout}
+
+            sx={{
+              '&:hover': {
+                backgroundColor: '#6366F1',
+                '& .MuiListItemText-primary': {
+                  color: 'white',
+                },
+                '& .MuiListItemIcon-root': {
+                  color: 'white',
+                },
+              },
+            }}
+          >
+            <ListItemIcon sx={{ color: 'black' }}>
+              <LogoutIcon />
+            </ListItemIcon>
+            <ListItemText
+              primary="Cerrar Sesión"
+              slotProps={{
+                primary: {
+                  sx: { fontWeight: 'normal' },
+                },
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
       </List>
     </Drawer>
   );

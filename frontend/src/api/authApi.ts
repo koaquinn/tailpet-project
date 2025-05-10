@@ -2,7 +2,7 @@
 import axiosInstance from './axiosConfig';
 
 export interface LoginCredentials {
-  username: string;
+  credential: string;
   password: string;
 }
 
@@ -49,12 +49,11 @@ export interface UpdateUserDto {
 }
 
 const authApi = {
-  /** Inicia sesión y devuelve los tokens + datos del usuario */
-  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const { data } = await axiosInstance.post<AuthResponse>(
-      '/auth/token/',
-      credentials
-    );
+  login: async (credentials: LoginCredentials) => {
+    const { data } = await axiosInstance.post('/auth/token/', {
+      credential: credentials.credential,
+      password: credentials.password
+    });
     return data;
   },
 

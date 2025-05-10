@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { 
   Container, Typography, Button, Paper, Table, TableBody, 
   TableCell, TableContainer, TableHead, TableRow, Box,
-  TextField, InputAdornment, Chip, IconButton, Tooltip,
+  TextField, InputAdornment, Chip, IconButton,
   TablePagination, CircularProgress, FormControlLabel, 
   Switch, Alert, Snackbar, Menu, MenuItem
 } from '@mui/material';
@@ -14,8 +14,10 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { getClientes, Cliente, deleteCliente } from '../../api/clienteApi';
+import { useNavigate } from 'react-router-dom';
 
 const ClientesList = () => {
+  const navigate = useNavigate();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [filteredClientes, setFilteredClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,10 +42,6 @@ const ClientesList = () => {
     message: '',
     severity: 'success'
   });
-  
-  // Confirmación de eliminación
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [clienteToDelete, setClienteToDelete] = useState<number | null>(null);
   
   const fetchClientes = async () => {
     setLoading(true);
@@ -102,27 +100,6 @@ const ClientesList = () => {
   
   const handleCloseFilterMenu = () => {
     setFilterAnchorEl(null);
-  };
-  
-  const handleDeleteCliente = async (id: number) => {
-    try {
-      await deleteCliente(id);
-      // Actualizar la lista después de eliminar
-      setClientes(prevClientes => prevClientes.filter(cliente => cliente.id !== id));
-      
-      setNotification({
-        open: true,
-        message: 'Cliente eliminado correctamente',
-        severity: 'success'
-      });
-    } catch (error) {
-      console.error("Error al eliminar cliente:", error);
-      setNotification({
-        open: true,
-        message: 'Error al eliminar el cliente',
-        severity: 'error'
-      });
-    }
   };
   
   const handleCloseNotification = () => {
@@ -191,6 +168,7 @@ const ClientesList = () => {
             onClick={handleOpenFilterMenu}
             color={showOnlyActive ? "primary" : "default"}
             aria-label="opciones de filtro"
+            title="Opciones de filtro"
           >
             <FilterListIcon />
           </IconButton>
@@ -241,7 +219,12 @@ const ClientesList = () => {
                 </TableRow>
               ) : paginatedClientes.length > 0 ? (
                 paginatedClientes.map((cliente) => (
-                  <TableRow key={cliente.id} hover>
+                  <TableRow 
+                    key={cliente.id} 
+                    hover
+                    onClick={() => navigate(`/clientes/${cliente.id}/mascotas`)}
+                    sx={{ cursor: 'pointer' }}
+                  >
                     <TableCell>{cliente.nombre}</TableCell>
                     <TableCell>{cliente.apellido}</TableCell>
                     <TableCell>{cliente.rut}</TableCell>
@@ -255,17 +238,18 @@ const ClientesList = () => {
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                        <Tooltip title="Editar cliente">
-                          <IconButton 
-                            component={Link} 
-                            to={`/clientes/${cliente.id}`}
-                            color="primary"
-                            size="small"
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                        <IconButton 
+                          component={Link} 
+                          to={`/clientes/editar/${cliente.id}`}
+                          color="primary"
+                          size="small"
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label="Editar cliente"
+                          title="Editar cliente"
+                        >
+                          <EditIcon />
+                        </IconButton>
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -315,8 +299,6 @@ const ClientesList = () => {
           {notification.message}
         </Alert>
       </Snackbar>
-      
-      {/* Aquí podría ir un diálogo de confirmación para eliminar clientes */}
     </Container>
   );
 };

@@ -12,6 +12,9 @@ import PetsIcon from '@mui/icons-material/Pets';
 import PersonIcon from '@mui/icons-material/Person';
 import { getClientes } from '../api/clienteApi';
 import { getMascotas } from '../api/mascotaApi';
+import { useAuth } from '../context/AuthContext';
+import { blue } from '@mui/material/colors';
+
 
 interface Summary {
   totalClientes: number;
@@ -23,6 +26,9 @@ const Dashboard: FC = () => {
     totalClientes: 0,
     totalMascotas: 0
   });
+
+  const { user } = useAuth();//hererererreeggeggeggdhd
+
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -58,66 +64,147 @@ const Dashboard: FC = () => {
   }
 
   return (
-    <Box p={3}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Dashboard – Sistema Veterinario Tailpet
-      </Typography>
+    <Box>
 
-      <Grid container spacing={3}>
-        {/* Tarjetas de resumen */}
-        <Grid item xs={12} sm={6}>
-          <Paper
-            elevation={3}
-            sx={{
-              p: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              bgcolor: 'primary.light',
-              color: 'white'
-            }}
-          >
-            <PersonIcon sx={{ fontSize: 60 }} />
-            <Typography variant="h4">{summary.totalClientes}</Typography>
-            <Typography variant="h6">Clientes Registrados</Typography>
-          </Paper>
-        </Grid>
+      {user && (
+        <Paper
+        elevation={3}
+        sx={{
+          mb: 3,
+          p: 2,
+          bgcolor: 'rgba(0,0,0,0.03)',
+          borderRadius: 2,
+          maxWidth: 800,
+          textAlign: 'left'
+          
+        }}
+      >
+        <Typography variant="h6" color='#6366F1'>
+          Bienvenido/a, <strong>{user.username}</strong>
+        </Typography>
+      </Paper>
+      )}
 
-        <Grid item xs={12} sm={6}>
-          <Paper
-            elevation={3}
-            sx={{
-              p: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              bgcolor: 'secondary.light',
-              color: 'white'
-            }}
-          >
-            <PetsIcon sx={{ fontSize: 60 }} />
-            <Typography variant="h4">{summary.totalMascotas}</Typography>
-            <Typography variant="h6">Mascotas Registradas</Typography>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12}>
-          <Card>
+      <Grid container spacing={1}>
+        <Grid item xs={12}
+          md={4}>
+          <Card elevation={3}>
             <CardContent>
-              <Typography variant="h5" gutterBottom>
-                Bienvenido al Sistema de Gestión Veterinaria
-              </Typography>
-              <Typography variant="body1">
-                Este sistema te permitirá gestionar la información de clientes,
-                mascotas, citas y servicios veterinarios de forma eficiente.
-              </Typography>
-              <Typography variant="body1" sx={{ mt: 2 }}>
-                Selecciona una opción del menú lateral para comenzar.
-              </Typography>
+              <Typography variant="h6" color='#6366F1'>Citas del día</Typography>
+              <Box mt={2} display="flex" alignItems="baseline">
+                <Typography variant="h3" sx={{ mr: 1, color: "blue" }}>
+                  4
+                </Typography>
+                <Typography variant="subtitle1">citas programadas</Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12}
+          md={4}>
+          <Card elevation={3}>
+            <CardContent>
+              <Typography variant="h6" color='#6366F1'>Alertas de inventario</Typography>
+              <Box mt={2} display="flex" alignItems="baseline">
+                <Typography variant="h3" sx={{ mr: 1, color: "red" }}>
+                  1
+                </Typography>
+                <Typography variant="subtitle1">productos con bajo stock</Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12}
+          md={4}>
+          <Card elevation={3}>
+            <CardContent>
+              <Typography variant="h6" color='#6366F1'>Vacunas proximas</Typography>
+              <Box mt={2} display="flex" alignItems="baseline">
+                <Typography variant="h3" sx={{ mr: 1, color: "orange" }}>
+                  2
+                </Typography>
+                <Typography variant="subtitle1">vacunas por vencer</Typography>
+              </Box>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
+
+      <Box mt={3}>
+        <Card elevation={3}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom color='#6366F1'>
+              Actividad reciente
+            </Typography>
+            <Box sx={{ mt: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', my: 1 }}>
+                  <Box sx={{ 
+                    width: 10, 
+                    height: 10, 
+                    borderRadius: '50%', 
+                    bgcolor: '#4285F4', 
+                    mr: 2 
+                  }}/>
+                  <Typography variant="body2">
+                    Hoy 09:00 AM - Se creó ficha para Mascota: Toby (Cliente: Juan Pérez)
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', my: 1 }}>
+                  <Box sx={{ 
+                    width: 10, 
+                    height: 10, 
+                    borderRadius: '50%', 
+                    bgcolor: '#4285F4', 
+                    mr: 2 
+                  }}/>
+                  <Typography variant="body2">
+                    Hoy 09:15 AM - Se agendó cita con Dr. García para Luna (Cliente: María López)
+                  </Typography>
+                </Box>
+          </Box>
+          </CardContent>
+        </Card>
+      </Box>
+
+      <Box mt={3}>
+        <Card elevation={3}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom color='#6366F1'>
+              Consultas del mes (Mayo)
+            </Typography>
+            {/*ejemplo grafico*/}
+            <Box sx={{ mt: 2, height: 150, display: 'flex', alignItems: 'flex-end' }}>
+
+                {['1-5', '6-10', '11-15', '16-20', '21-25', '26-30'].map((label, index) => {
+                  const height = [55, 70, 55, 80, 65, 50, 70][index % 7];
+                  return (
+                    <Box 
+                      key={label}
+                      sx={{
+                        height: `${height}%`,
+                        width: '12%',
+                        bgcolor: '#4A7B9D',
+                        mx: '2%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'flex-end',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ mt: 1 }}>
+                        {label}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              </Box>
+          </CardContent>
+        </Card>
+      </Box>
+
+      
     </Box>
   );
 };
