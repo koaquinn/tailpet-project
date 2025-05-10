@@ -1,6 +1,6 @@
-# inventario/signals.py
 from django.db.models.signals import post_save, pre_save, post_delete
 from django.dispatch import receiver
+from django.db.models import Sum  # Importación clave que faltaba
 from .models import MovimientoInventario, LoteMedicamento, Medicamento
 
 @receiver(post_save, sender=MovimientoInventario)
@@ -24,7 +24,6 @@ def actualizar_stock_medicamento(sender, instance, created, **kwargs):
                 pass
             lote.save()
 
-# Signal para actualizar stock medicamento cuando cambia un lote
 @receiver(post_save, sender=LoteMedicamento)
 def actualizar_stock_medicamento_desde_lote(sender, instance, **kwargs):
     """
@@ -33,8 +32,9 @@ def actualizar_stock_medicamento_desde_lote(sender, instance, **kwargs):
     medicamento = instance.medicamento
     stock_total = LoteMedicamento.objects.filter(
         medicamento=medicamento
-    ).values_list('cantidad', flat=True).aggregate(total=models.Sum('cantidad'))['total'] or 0
+    ).aggregate(total=Sum('cantidad'))['total'] or 0
     
-    # Aquí podrías actualizar un campo stock_actual en el modelo Medicamento si lo añades
-    # medicamento.stock_actual = stock_total
-    # medicamento.save()
+    # Actualiza el campo stock_actual si existe en tu modelo Medicamento
+    if hasattr(medicamento, 'stock_actual'):
+        medicamento.stock_actual = stock_total
+        medicamento.save()
