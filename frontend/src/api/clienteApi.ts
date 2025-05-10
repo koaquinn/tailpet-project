@@ -1,13 +1,12 @@
-import axios from 'axios';
+// src/api/clienteApi.ts
+import axiosInstance from './axiosConfig';
 import { Cliente, ClienteResponse } from '../types/cliente';
 import { Mascota, MascotaResponse } from '../types/mascota';
 
-const API_URL = 'http://localhost:8000/api';
-
-export const getClientes = async (): Promise<ClienteResponse> => {
+export const getClientes = async (params?: { page?: number; page_size?: number }): Promise<ClienteResponse> => {
   try {
-    const response = await axios.get(`${API_URL}/clientes/clientes/`);
-    return response.data;
+    const { data } = await axiosInstance.get<ClienteResponse>('/clientes/clientes/', { params });
+    return data;
   } catch (error) {
     console.error("Error fetching clientes:", error);
     throw error;
@@ -16,18 +15,23 @@ export const getClientes = async (): Promise<ClienteResponse> => {
 
 export const getCliente = async (id: number): Promise<Cliente> => {
   try {
-    const response = await axios.get(`${API_URL}/clientes/clientes/${id}/`);
-    return response.data;
+    const { data } = await axiosInstance.get<Cliente>(`/clientes/clientes/${id}/`);
+    return data;
   } catch (error) {
     console.error(`Error fetching cliente ${id}:`, error);
     throw error;
   }
 };
 
-export const getMascotasByCliente = async (clienteId: number): Promise<MascotaResponse> => {
+export const getMascotasByCliente = async (clienteId: number, params?: { page?: number; page_size?: number }): Promise<MascotaResponse> => {
   try {
-    const response = await axios.get(`${API_URL}/mascotas/mascotas/?cliente=${clienteId}`);
-    return response.data;
+    const { data } = await axiosInstance.get<MascotaResponse>(`/mascotas/mascotas/`, { 
+      params: { 
+        cliente: clienteId,
+        ...params 
+      } 
+    });
+    return data;
   } catch (error) {
     console.error(`Error fetching mascotas for cliente ${clienteId}:`, error);
     throw error;
@@ -36,8 +40,8 @@ export const getMascotasByCliente = async (clienteId: number): Promise<MascotaRe
 
 export const createCliente = async (clienteData: Cliente): Promise<Cliente> => {
   try {
-    const response = await axios.post(`${API_URL}/clientes/clientes/`, clienteData);
-    return response.data;
+    const { data } = await axiosInstance.post<Cliente>('/clientes/clientes/', clienteData);
+    return data;
   } catch (error) {
     console.error("Error creating cliente:", error);
     throw error;
@@ -46,20 +50,61 @@ export const createCliente = async (clienteData: Cliente): Promise<Cliente> => {
 
 export const updateCliente = async (id: number, clienteData: Cliente): Promise<Cliente> => {
   try {
-    const response = await axios.put(`${API_URL}/clientes/clientes/${id}/`, clienteData);
-    return response.data;
+    const { data } = await axiosInstance.put<Cliente>(`/clientes/clientes/${id}/`, clienteData);
+    return data;
   } catch (error) {
     console.error(`Error updating cliente ${id}:`, error);
     throw error;
   }
 };
 
-// Opcional: Si necesitas borrar clientes
 export const deleteCliente = async (id: number): Promise<void> => {
   try {
-    await axios.delete(`${API_URL}/clientes/clientes/${id}/`);
+    await axiosInstance.delete(`/clientes/clientes/${id}/`);
   } catch (error) {
     console.error(`Error deleting cliente ${id}:`, error);
+    throw error;
+  }
+};
+
+// Funciones para direcciones de clientes
+export const getDireccionesCliente = async (clienteId: number): Promise<any> => {
+  try {
+    const { data } = await axiosInstance.get(`/clientes/direcciones/`, {
+      params: { cliente: clienteId }
+    });
+    return data;
+  } catch (error) {
+    console.error(`Error fetching direcciones for cliente ${clienteId}:`, error);
+    throw error;
+  }
+};
+
+export const createDireccionCliente = async (direccionData: any): Promise<any> => {
+  try {
+    const { data } = await axiosInstance.post('/clientes/direcciones/', direccionData);
+    return data;
+  } catch (error) {
+    console.error("Error creating direccion:", error);
+    throw error;
+  }
+};
+
+export const updateDireccionCliente = async (id: number, direccionData: any): Promise<any> => {
+  try {
+    const { data } = await axiosInstance.put(`/clientes/direcciones/${id}/`, direccionData);
+    return data;
+  } catch (error) {
+    console.error(`Error updating direccion ${id}:`, error);
+    throw error;
+  }
+};
+
+export const deleteDireccionCliente = async (id: number): Promise<void> => {
+  try {
+    await axiosInstance.delete(`/clientes/direcciones/${id}/`);
+  } catch (error) {
+    console.error(`Error deleting direccion ${id}:`, error);
     throw error;
   }
 };

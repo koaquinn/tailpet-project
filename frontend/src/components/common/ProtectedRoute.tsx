@@ -1,7 +1,8 @@
-// src/components/ProtectedRoute.tsx
+// src/components/common/ProtectedRoute.tsx
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { CircularProgress, Box } from '@mui/material';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -12,12 +13,23 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   requiredRoles = []
 }) => {
-  const { isAuthenticated, isLoading, user, hasRole } = useAuth();
+  const { isAuthenticated, isLoading, hasRole } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
-    // Mientras verificamos el token, mostrar un loader ligero
-    return <div>Cargando...</div>;
+    // Mostrar un loader mientras verificamos el token
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh' 
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
   }
 
   if (!isAuthenticated) {
@@ -27,7 +39,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Si se requieren roles específicos
   if (requiredRoles.length > 0) {
-    // hasRole ahora comprueba user.rol === role
+    // Comprobar si tiene alguno de los roles requeridos
     const hasRequiredRole = requiredRoles.some(role => hasRole(role));
 
     if (!hasRequiredRole) {

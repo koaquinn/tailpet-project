@@ -1,4 +1,4 @@
-// src/api/authApi.ts
+// src/api/authApi.ts (corregido)
 import axiosInstance from './axiosConfig';
 
 export interface LoginCredentials {
@@ -12,7 +12,7 @@ export interface User {
   email: string;
   first_name: string;
   last_name: string;
-  rol: string;          // ahora un único rol en vez de un array
+  rol: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -28,7 +28,12 @@ export interface AuthResponse {
   user: User;
 }
 
-// DTO para crear un usuario
+export interface Role {
+  id: number;
+  nombre: string;
+  descripcion: string;
+}
+
 export interface CreateUserDto {
   username: string;
   email?: string;
@@ -38,7 +43,6 @@ export interface CreateUserDto {
   rol_id: number;
 }
 
-// DTO para actualizar un usuario
 export interface UpdateUserDto {
   username?: string;
   email?: string;
@@ -50,14 +54,13 @@ export interface UpdateUserDto {
 
 const authApi = {
   login: async (credentials: LoginCredentials) => {
-    const { data } = await axiosInstance.post('/auth/token/', {
+    const { data } = await axiosInstance.post<AuthResponse>('/auth/token/', {
       credential: credentials.credential,
       password: credentials.password
     });
     return data;
   },
 
-  /** Refresca el access-token */
   refreshToken: async (refresh: string): Promise<{ access: string }> => {
     const { data } = await axiosInstance.post<{ access: string }>(
       '/auth/token/refresh/',
@@ -66,15 +69,11 @@ const authApi = {
     return data;
   },
 
-  /** Devuelve el usuario autenticado */
   getMe: async (): Promise<User> => {
     const { data } = await axiosInstance.get<User>('/auth/users/me/');
     return data;
   },
 
-  // ---------------- Administración de usuarios ----------------
-
-  /** Lista usuarios paginados */
   getUsers: async (
     params?: { page?: number; page_size?: number }
   ): Promise<PaginatedResponse<User>> => {
@@ -85,7 +84,6 @@ const authApi = {
     return data;
   },
 
-  /** Obtiene un usuario por ID */
   getUser: async (userId: number): Promise<User> => {
     const { data } = await axiosInstance.get<User>(
       `/auth/users/${userId}/`
@@ -93,7 +91,6 @@ const authApi = {
     return data;
   },
 
-  /** Crea un usuario nuevo */
   createUser: async (userData: CreateUserDto): Promise<User> => {
     const { data } = await axiosInstance.post<User>(
       '/auth/users/',
@@ -102,7 +99,6 @@ const authApi = {
     return data;
   },
 
-  /** Actualiza un usuario existente */
   updateUser: async (
     userId: number,
     userData: UpdateUserDto
@@ -114,10 +110,15 @@ const authApi = {
     return data;
   },
 
-  /** Elimina un usuario */
   deleteUser: async (userId: number): Promise<void> => {
     await axiosInstance.delete(`/auth/users/${userId}/`);
   },
+
+  // Añadir método para obtener roles
+  getRoles: async (): Promise<PaginatedResponse<Role>> => {
+    const { data } = await axiosInstance.get<PaginatedResponse<Role>>('/auth/roles/');
+    return data;
+  }
 };
 
 export default authApi;

@@ -30,22 +30,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Al iniciar la app, miramos si hay token en storage
   useEffect(() => {
     const checkAuth = async () => {
-      const access = localStorage.getItem('access_token');
-      const refresh = localStorage.getItem('refresh_token');
-      if (access) {
+      try {
+        setIsLoading(true);
+        const access = localStorage.getItem('access_token');
+        const refresh = localStorage.getItem('refresh_token');
+        if (!access || !refresh) {
+          setIsLoading(false);
+          return;
+        }
+
         setAuthHeader(access);
+        
         try {
           const userData = await authApi.getMe();
           setUser(userData);
         } catch (err) {
           console.error('Error verificando sesión:', err);
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          setAuthHeader(null);
+          
+          // Intentamos refrescar el token si hay error
+          try {
+            const { access: newAccess } = await authApi.refreshToken(refresh);
+            localStorage.setItem('access_token', newAccess);
+            setAuthHeader(newAccess);
+            
+            // Intentamos de nuevo con el nuevo token
+            const userData = await authApi.getMe();
+            setUser(userData);
+          } catch (refreshError) {
+            console.error('Error refrescando token:', refreshError);
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            setAuthHeader(null);
+          }
         }
+      } catch (error) {
+        console.error('Error general en checkAuth:', error);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
+    
     checkAuth();
   }, []);
 

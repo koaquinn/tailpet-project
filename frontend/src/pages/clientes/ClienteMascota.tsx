@@ -18,40 +18,41 @@ import {
   Alert,
   Breadcrumbs,
   IconButton,
-  TablePagination
+  TablePagination,
+  Tooltip
 } from '@mui/material';
 import {
-  ArrowBack,
-  Pets,
-  Add,
-  Edit,
-  MedicalServices,
-  Vaccines
+  ArrowBack as ArrowBackIcon,
+  Pets as PetsIcon,
+  Add as AddIcon,
+  Edit as EditIcon,
+  MedicalServices as HealthIcon,
+  Vaccines as VaccineIcon,
+  MonitorWeight as WeightIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { getCliente, getMascotasByCliente } from '../../api/clienteApi';
 import { getEspecie, getRaza } from '../../api/mascotaApi';
 import { Mascota } from '../../types/mascota';
+import { Cliente } from '../../types/cliente';
+import { sexoToText, booleanToText, calculateAge } from '../../utils/formatters';
+import { useAuth } from '../../context/AuthContext';
 
 interface MascotaEnriquecida extends Mascota {
   especieNombre?: string;
   razaNombre?: string;
 }
 
-// Tipos adicionales para mayor claridad
-interface Cliente {
-  id: number;
-  nombre: string;
-  apellido: string;
-  rut: string;
-  telefono: string | null;
-  email: string | null;
-  activo: boolean;
-}
-
 const ClienteMascotas: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const clienteId = Number(id);
   const navigate = useNavigate();
+  const { hasRole } = useAuth();
+  
+  // Permisos según roles
+  const canEdit = hasRole('ADMIN') || hasRole('RECEPCIONISTA');
+  const canViewMedical = hasRole('ADMIN') || hasRole('VETERINARIO');
+  
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [mascotas, setMascotas] = useState<MascotaEnriquecida[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,58 +70,49 @@ const ClienteMascotas: React.FC = () => {
     setPage(0);
   }, []);
 
-  // Memoizar la función de cálculo de edad para evitar recreaciones
-  const calcularEdad = useCallback((fechaNacimiento?: string, edad?: number): string => {
-    if (fechaNacimiento) {
-      const diff = new Date().getFullYear() - new Date(fechaNacimiento).getFullYear();
-      return `${diff} año${diff !== 1 ? 's' : ''}`;
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Obtener datos del cliente y sus mascotas en paralelo
+      const [clienteData, mascotasData] = await Promise.all([
+        getCliente(clienteId),
+        getMascotasByCliente(clienteId)
+      ]);
+
+      // Optimización: extraer IDs únicos para evitar llamadas duplicadas
+      const especiesIds = Array.from(new Set(mascotasData.results.map(m => m.especie)));
+      const razasIds = Array.from(new Set(mascotasData.results.map(m => m.raza)));
+      
+      // Obtener todas las especies y razas necesarias en una sola vez
+      const [especiesList, razasList] = await Promise.all([
+        Promise.all(especiesIds.map(id => getEspecie(id))),
+        Promise.all(razasIds.map(id => getRaza(id)))
+      ]);
+      
+      // Crear mapas para acceso rápido
+      const especiesMap = new Map(especiesList.map(e => [e.id, e.nombre]));
+      const razasMap = new Map(razasList.map(r => [r.id, r.nombre]));
+      
+      // Enriquecer mascotas con nombres de especie y raza usando los mapas
+      const mascotasEnriquecidas = mascotasData.results.map(mascota => ({
+        ...mascota,
+        especieNombre: especiesMap.get(mascota.especie) || 'Desconocido',
+        razaNombre: razasMap.get(mascota.raza) || 'Desconocida'
+      }));
+
+      setCliente(clienteData);
+      setMascotas(mascotasEnriquecidas);
+    } catch (err) {
+      console.error('Error al cargar los datos:', err);
+      setError('Error al cargar los datos del cliente y sus mascotas');
+    } finally {
+      setLoading(false);
     }
-    return edad ? `${edad} año${edad !== 1 ? 's' : ''}` : 'N/A';
-  }, []);
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Obtener datos del cliente y sus mascotas en paralelo
-        const [clienteData, mascotasData] = await Promise.all([
-          getCliente(clienteId),
-          getMascotasByCliente(clienteId)
-        ]);
-
-        // Optimización: extraer IDs únicos para evitar llamadas duplicadas
-        const especiesIds = Array.from(new Set(mascotasData.results.map(m => m.especie)));
-        const razasIds = Array.from(new Set(mascotasData.results.map(m => m.raza)));
-        
-        // Obtener todas las especies y razas necesarias en una sola vez
-        const [especiesList, razasList] = await Promise.all([
-          Promise.all(especiesIds.map(id => getEspecie(id))),
-          Promise.all(razasIds.map(id => getRaza(id)))
-        ]);
-        
-        // Crear mapas para acceso rápido
-        const especiesMap = new Map(especiesList.map(e => [e.id, e.nombre]));
-        const razasMap = new Map(razasList.map(r => [r.id, r.nombre]));
-        
-        // Enriquecer mascotas con nombres de especie y raza usando los mapas
-        const mascotasEnriquecidas = mascotasData.results.map(mascota => ({
-          ...mascota,
-          especieNombre: especiesMap.get(mascota.especie) || 'Desconocido',
-          razaNombre: razasMap.get(mascota.raza) || 'Desconocida'
-        }));
-
-        setCliente(clienteData);
-        setMascotas(mascotasEnriquecidas);
-      } catch (err) {
-        console.error('Error al cargar los datos:', err);
-        setError('Error al cargar los datos del cliente y sus mascotas');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, [clienteId]);
 
@@ -141,11 +133,21 @@ const ClienteMascotas: React.FC = () => {
   if (error) {
     return (
       <Container maxWidth="lg">
-        <Alert severity="error" sx={{ my: 2 }}>
+        <Alert 
+          severity="error" 
+          sx={{ my: 2 }}
+          action={
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={fetchData}
+              startIcon={<RefreshIcon />}
+            >
+              Reintentar
+            </Button>
+          }
+        >
           {error}
-          <Button onClick={() => window.location.reload()} color="inherit" size="small">
-            Reintentar
-          </Button>
         </Alert>
       </Container>
     );
@@ -170,27 +172,30 @@ const ClienteMascotas: React.FC = () => {
 
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h4" component="h1">
-            <Pets sx={{ verticalAlign: 'middle', mr: 1 }} />
+            <PetsIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
             Mascotas de {cliente.nombre} {cliente.apellido}
           </Typography>
           
           <Box>
             <Button
               variant="outlined"
-              startIcon={<ArrowBack />}
+              startIcon={<ArrowBackIcon />}
               onClick={() => navigate('/clientes')}
               sx={{ mr: 2 }}
             >
               Volver
             </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<Add />}
-              onClick={() => navigate(`/mascotas/nuevo?clienteId=${clienteId}`)}
-            >
-              Nueva Mascota
-            </Button>
+            
+            {canEdit && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={() => navigate(`/mascotas/nuevo?clienteId=${clienteId}`)}
+              >
+                Nueva Mascota
+              </Button>
+            )}
           </Box>
         </Box>
       </Box>
@@ -218,8 +223,8 @@ const ClienteMascotas: React.FC = () => {
             </Typography>
           </Box>
           <Box>
-            <Typography variant="subtitle1">
-              <strong>Estado:</strong> 
+            <Typography variant="subtitle1" sx={{ display: 'flex', alignItems: 'center' }}>
+              <strong>Estado:</strong>
               <Chip
                 label={cliente.activo ? 'Activo' : 'Inactivo'}
                 color={cliente.activo ? 'success' : 'error'}
@@ -253,15 +258,17 @@ const ClienteMascotas: React.FC = () => {
                     <Typography variant="body1" color="textSecondary">
                       No se encontraron mascotas registradas para este cliente
                     </Typography>
-                    <Button
-                      variant="text"
-                      color="primary"
-                      startIcon={<Add />}
-                      onClick={() => navigate(`/mascotas/nuevo?clienteId=${clienteId}`)}
-                      sx={{ mt: 1 }}
-                    >
-                      Agregar primera mascota
-                    </Button>
+                    {canEdit && (
+                      <Button
+                        variant="text"
+                        color="primary"
+                        startIcon={<AddIcon />}
+                        onClick={() => navigate(`/mascotas/nuevo?clienteId=${clienteId}`)}
+                        sx={{ mt: 1 }}
+                      >
+                        Agregar primera mascota
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -271,10 +278,10 @@ const ClienteMascotas: React.FC = () => {
                     <TableCell>{mascota.especieNombre}</TableCell>
                     <TableCell>{mascota.razaNombre}</TableCell>
                     <TableCell>
-                      {calcularEdad(mascota.fecha_nacimiento, mascota.edad)}
+                      {calculateAge(mascota.fecha_nacimiento)} años
                     </TableCell>
                     <TableCell>
-                      {mascota.sexo === 'M' ? 'Macho' : 'Hembra'}
+                      {sexoToText(mascota.sexo)}
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -285,33 +292,57 @@ const ClienteMascotas: React.FC = () => {
                     </TableCell>
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => navigate(`/mascotas/editar/${mascota.id}`)}
-                          aria-label="Editar mascota"
-                          title="Editar mascota"
-                        >
-                          <Edit />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          color="secondary"
-                          onClick={() => navigate(`/mascotas/${mascota.id}/historial`)}
-                          aria-label="Historial médico"
-                          title="Historial médico"
-                        >
-                          <MedicalServices />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          color="info"
-                          onClick={() => navigate(`/mascotas/${mascota.id}/vacunas`)}
-                          aria-label="Vacunas"
-                          title="Vacunas"
-                        >
-                          <Vaccines />
-                        </IconButton>
+                        {canEdit && mascota.id && (
+                          <Tooltip title="Editar mascota">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => navigate(`/mascotas/editar/${mascota.id}`)}
+                              aria-label="Editar mascota"
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        
+                        {canViewMedical && mascota.id && (
+                          <Tooltip title="Historial médico">
+                            <IconButton
+                              size="small"
+                              color="secondary"
+                              onClick={() => navigate(`/mascotas/${mascota.id}/historial`)}
+                              aria-label="Historial médico"
+                            >
+                              <HealthIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        
+                        {canViewMedical && mascota.id && (
+                          <Tooltip title="Vacunas">
+                            <IconButton
+                              size="small"
+                              color="info"
+                              onClick={() => navigate(`/mascotas/${mascota.id}/vacunas`)}
+                              aria-label="Vacunas"
+                            >
+                              <VaccineIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        
+                        {mascota.id && (
+                          <Tooltip title="Registro de peso">
+                            <IconButton
+                              size="small"
+                              color="success"
+                              onClick={() => navigate(`/mascotas/${mascota.id}/peso`)}
+                              aria-label="Registro de peso"
+                            >
+                              <WeightIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -331,6 +362,9 @@ const ClienteMascotas: React.FC = () => {
             onPageChange={handleChangePage}
             onRowsPerPageChange={handleChangeRowsPerPage}
             labelRowsPerPage="Mascotas por página:"
+            labelDisplayedRows={({ from, to, count }) => 
+              `${from}-${to} de ${count}`
+            }
           />
         )}
       </Paper>

@@ -4,14 +4,20 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container, Typography, Box, Button, TextField, Grid, Paper,
   Divider, Switch, FormControlLabel, Alert, CircularProgress,
-  Snackbar
+  Snackbar, Card, CardContent, IconButton, Tooltip
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import SaveIcon from '@mui/icons-material/Save';
+import {
+  ArrowBack as ArrowBackIcon,
+  Save as SaveIcon,
+  PersonAdd as PersonAddIcon,
+  Cancel as CancelIcon
+} from '@mui/icons-material';
 import { getCliente, createCliente, updateCliente } from '../../api/clienteApi';
+import { Cliente } from '../../types/cliente';
+import { validateRut, validateEmail, validatePhone } from '../../utils/formatters';
 import './ClienteForm.css';
 
-// Tipos
+// Interfaces
 interface FormErrors {
   [key: string]: string | undefined;
 }
@@ -43,7 +49,7 @@ const FORM_FIELDS = [
     helperText: 'Formato: 12345678-9',
     validate: (value: string) => {
       if (!value.trim()) return 'El RUT es requerido';
-      if (!/^[0-9]{7,8}-[0-9kK]$/.test(value)) return 'Formato inválido. Ej: 12345678-9';
+      if (!validateRut(value)) return 'Formato inválido. Ej: 12345678-9';
       return undefined;
     }
   },
@@ -56,7 +62,7 @@ const FORM_FIELDS = [
     helperText: 'Ej: +56912345678',
     validate: (value: string) => {
       if (!value.trim()) return 'El teléfono es requerido';
-      if (!/^[+]?[0-9]{9,12}$/.test(value)) return 'Formato inválido. Ej: +56912345678';
+      if (!validatePhone(value)) return 'Formato inválido. Ej: +56912345678';
       return undefined;
     }
   },
@@ -69,7 +75,7 @@ const FORM_FIELDS = [
     gridProps: { xs: 12 },
     validate: (value: string) => {
       if (!value.trim()) return 'El email es requerido';
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Email inválido';
+      if (!validateEmail(value)) return 'Email inválido';
       return undefined;
     }
   }
@@ -103,6 +109,7 @@ const ClienteForm = () => {
   });
   const [formData, setFormData] = useState<Cliente>(DEFAULT_FORM_DATA);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [hasChanges, setHasChanges] = useState(false);
 
   // Cargar datos del cliente si estamos en modo edición
   useEffect(() => {
@@ -113,6 +120,7 @@ const ClienteForm = () => {
         setLoading(true);
         const data = await getCliente(Number(id));
         setFormData({
+          id: data.id,
           nombre: data.nombre || '',
           apellido: data.apellido || '',
           rut: data.rut || '',
@@ -131,12 +139,20 @@ const ClienteForm = () => {
     fetchCliente();
   }, [isEdit, id]);
   
+  // Detectar cambios en el formulario
+  useEffect(() => {
+    if (isEdit && !loading) {
+      setHasChanges(true); // Solo activa el estado de cambios cuando no está cargando inicialmente
+    }
+  }, [formData, isEdit, loading]);
+  
   // Validar todos los campos del formulario
   const validateForm = () => {
     const newErrors: FormErrors = {};
     
     FORM_FIELDS.forEach(field => {
-      const fieldValue = formData[field.name as keyof Cliente] as string;
+      const fieldName = field.name as keyof Cliente;
+      const fieldValue = formData[fieldName] as string;
       const fieldError = field.validate?.(fieldValue);
       if (fieldError) {
         newErrors[field.name] = fieldError;
@@ -162,6 +178,8 @@ const ClienteForm = () => {
         [name]: undefined
       }));
     }
+    
+    setHasChanges(true);
   };
   
   // Mostrar notificaciones
@@ -178,6 +196,18 @@ const ClienteForm = () => {
       ...prev,
       open: false
     }));
+  };
+  
+  // Confirmar cancelación si hay cambios
+  const handleCancel = () => {
+    if (hasChanges) {
+      const confirmed = window.confirm('¿Estás seguro de cancelar? Todos los cambios se perderán.');
+      if (confirmed) {
+        navigate('/clientes');
+      }
+    } else {
+      navigate('/clientes');
+    }
   };
   
   // Manejar envío del formulario
@@ -201,15 +231,16 @@ const ClienteForm = () => {
       setTimeout(() => {
         navigate('/clientes');
       }, 1500);
-    } catch (error) {
-      showNotification('Error al guardar el cliente. Inténtalo de nuevo.', 'error');
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.detail || 'Error al guardar el cliente. Inténtalo de nuevo.';
+      showNotification(errorMsg, 'error');
       console.error('Error:', error);
     } finally {
       setSaving(false);
     }
   };
   
-  // Mostrar spinner durante la carga
+  // Mostrar spinner durante la carga inicial
   if (loading && isEdit) {
     return (
       <Container className="cliente-form-container">
@@ -227,15 +258,19 @@ const ClienteForm = () => {
           startIcon={<ArrowBackIcon />} 
           onClick={() => navigate('/clientes')}
           className="cliente-form-button cliente-form-button-outline"
+          variant="outlined"
         >
           Volver a lista de clientes
         </Button>
       </Box>
       
-      <Paper className="cliente-form-card">
-        <Typography variant="h5" component="h1" className="cliente-form-title" gutterBottom>
-          {isEdit ? 'Editar Cliente' : 'Nuevo Cliente'}
-        </Typography>
+      <Paper className="cliente-form-card" elevation={3}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <PersonAddIcon color="primary" sx={{ mr: 1, fontSize: 28 }} />
+          <Typography variant="h5" component="h1" className="cliente-form-title">
+            {isEdit ? 'Editar Cliente' : 'Nuevo Cliente'}
+          </Typography>
+        </Box>
         <Divider sx={{ mb: 3 }} />
         
         <form onSubmit={handleSubmit}>
@@ -282,8 +317,9 @@ const ClienteForm = () => {
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
                 <Button 
                   variant="outlined" 
-                  onClick={() => navigate('/clientes')}
+                  onClick={handleCancel}
                   disabled={saving}
+                  startIcon={<CancelIcon />}
                   className="cliente-form-button cliente-form-button-outline"
                 >
                   Cancelar

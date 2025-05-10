@@ -1,4 +1,4 @@
-// src/App.tsx
+// src/App.tsx (modificado)
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
@@ -11,12 +11,31 @@ import Layout from './components/layout/Layout';
 import LoginPage from './pages/auth/PaginaLogin';
 import ForbiddenPage from './pages/auth/ForbiddenPage';
 import DashboardPage from './pages/Dashboard';
+
+// Clientes
 import ClientesList from './pages/clientes/ClientesLIst';
 import ClienteForm from './pages/clientes/ClienteForm';
+import ClienteMascotas from './pages/clientes/ClienteMascota';
+
+// Mascotas
 import MascotasList from './pages/mascotas/MascotasList';
 import MascotaForm from './pages/mascotas/MascotaForm';
+import HistorialMascota from './pages/historial/HistorialMascota';
+
+// Citas
+import CitasList from './pages/citas/CitasList';
+import CitaForm from './pages/citas/CitaForm';
+
+// Inventario
+import InventarioList from './pages/inventario/InventarioList';
+
+// Facturación
+import FacturasList from './pages/facturacion/FacturasList';
+import FacturaDetalle from './pages/facturacion/FacturaDetalle';
+
+// Admin
 import UsersPage from './pages/admin/UserPage';
-import ClienteMascotas from './pages/clientes/ClienteMascota';
+
 // Constantes de roles
 const ADMIN = 'ADMIN';
 const VETERINARIO = 'VETERINARIO';
@@ -68,7 +87,6 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            {/* Ruta para ver las mascotas de un cliente */}
             <Route
               path="clientes/:id/mascotas"
               element={
@@ -100,6 +118,68 @@ function App() {
               element={
                 <ProtectedRoute requiredRoles={[ADMIN, RECEPCIONISTA]}>
                   <MascotaForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="mascotas/:id/historial"
+              element={
+                <ProtectedRoute requiredRoles={[ADMIN, RECEPCIONISTA, VETERINARIO]}>
+                  <HistorialMascota />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Rutas de Citas */}
+            <Route
+              path="citas"
+              element={
+                <ProtectedRoute requiredRoles={[ADMIN, RECEPCIONISTA, VETERINARIO]}>
+                  <CitasList />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="citas/nueva"
+              element={
+                <ProtectedRoute requiredRoles={[ADMIN, RECEPCIONISTA, VETERINARIO]}>
+                  <CitaForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="citas/:id"
+              element={
+                <ProtectedRoute requiredRoles={[ADMIN, RECEPCIONISTA, VETERINARIO]}>
+                  <CitaForm />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Rutas de Inventario */}
+            <Route
+              path="inventario"
+              element={
+                <ProtectedRoute requiredRoles={[ADMIN, VETERINARIO]}>
+                  <InventarioList />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Rutas de Facturación */}
+            <Route
+              path="facturacion"
+              element={
+                <ProtectedRoute requiredRoles={[ADMIN, RECEPCIONISTA]}>
+                  <FacturasList />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="facturacion/:id"
+              element={
+                <ProtectedRoute requiredRoles={[ADMIN, RECEPCIONISTA]}>
+                  <FacturaDetalle />
                 </ProtectedRoute>
               }
             />

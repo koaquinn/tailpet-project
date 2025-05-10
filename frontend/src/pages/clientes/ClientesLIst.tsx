@@ -1,6 +1,6 @@
 // src/pages/clientes/ClientesList.tsx
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Container, Typography, Button, Paper, Table, TableBody, 
   TableCell, TableContainer, TableHead, TableRow, Box,
@@ -8,22 +8,28 @@ import {
   TablePagination, CircularProgress, FormControlLabel, 
   Switch, Alert, Snackbar, Menu, MenuItem
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import FilterListIcon from '@mui/icons-material/FilterList';
-import { getClientes, Cliente, deleteCliente } from '../../api/clienteApi';
-import { useNavigate } from 'react-router-dom';
+import {
+  Search as SearchIcon,
+  Add as AddIcon,
+  Edit as EditIcon,
+  Pets as PetsIcon,
+  FilterList as FilterListIcon,
+  Refresh as RefreshIcon
+} from '@mui/icons-material';
+import { getClientes, Cliente } from '../../api/clienteApi';
+import { useAuth } from '../../context/AuthContext';
 
 const ClientesList = () => {
   const navigate = useNavigate();
+  const { hasRole } = useAuth();
+  const canEdit = hasRole('ADMIN') || hasRole('RECEPCIONISTA');
+  
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [filteredClientes, setFilteredClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showOnlyActive, setShowOnlyActive] = useState(false);
+  const [showOnlyActive, setShowOnlyActive] = useState(true);
   
   // Paginación
   const [page, setPage] = useState(0);
@@ -43,7 +49,7 @@ const ClientesList = () => {
     severity: 'success'
   });
   
-  const fetchClientes = async () => {
+  const fetchClientes = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -57,22 +63,24 @@ const ClientesList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
   
   useEffect(() => {
     fetchClientes();
-  }, []);
+  }, [fetchClientes]);
   
   useEffect(() => {
     let filtered = [...clientes];
     
     // Filtrar por término de búsqueda
     if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter(cliente => 
-        cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cliente.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cliente.rut.includes(searchTerm) ||
-        cliente.email.toLowerCase().includes(searchTerm.toLowerCase())
+        cliente.nombre.toLowerCase().includes(term) ||
+        cliente.apellido.toLowerCase().includes(term) ||
+        cliente.rut.includes(term) ||
+        (cliente.email && cliente.email.toLowerCase().includes(term)) ||
+        (cliente.telefono && cliente.telefono.includes(term))
       );
     }
     
@@ -115,21 +123,26 @@ const ClientesList = () => {
     page * rowsPerPage + rowsPerPage
   );
   
+  const handleViewMascotas = (clienteId: number) => {
+    navigate(`/clientes/${clienteId}/mascotas`);
+  };
+  
   return (
     <Container maxWidth="lg">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">
           Clientes
         </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          component={Link} 
-          to="/clientes/nuevo"
-          startIcon={<AddIcon />}
-        >
-          Nuevo Cliente
-        </Button>
+        {canEdit && (
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={() => navigate('/clientes/nuevo')}
+            startIcon={<AddIcon />}
+          >
+            Nuevo Cliente
+          </Button>
+        )}
       </Box>
       
       {error && (
@@ -139,6 +152,7 @@ const ClientesList = () => {
             color="inherit" 
             size="small" 
             onClick={fetchClientes}
+            startIcon={<RefreshIcon />}
             sx={{ ml: 2 }}
           >
             Reintentar
@@ -152,7 +166,7 @@ const ClientesList = () => {
             fullWidth
             variant="outlined"
             size="small"
-            placeholder="Buscar por nombre, RUT o email..."
+            placeholder="Buscar por nombre, RUT, teléfono o email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             InputProps={{
@@ -222,8 +236,8 @@ const ClientesList = () => {
                   <TableRow 
                     key={cliente.id} 
                     hover
-                    onClick={() => navigate(`/clientes/${cliente.id}/mascotas`)}
                     sx={{ cursor: 'pointer' }}
+                    onClick={() => cliente.id && handleViewMascotas(cliente.id)}
                   >
                     <TableCell>{cliente.nombre}</TableCell>
                     <TableCell>{cliente.apellido}</TableCell>
@@ -240,16 +254,32 @@ const ClientesList = () => {
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                         <IconButton 
-                          component={Link} 
-                          to={`/clientes/editar/${cliente.id}`}
                           color="primary"
                           size="small"
-                          onClick={(e) => e.stopPropagation()}
-                          aria-label="Editar cliente"
-                          title="Editar cliente"
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevenir la propagación del evento
+                            cliente.id && handleViewMascotas(cliente.id);
+                          }}
+                          aria-label="Ver mascotas"
+                          title="Ver mascotas"
                         >
-                          <EditIcon />
+                          <PetsIcon />
                         </IconButton>
+                        
+                        {canEdit && cliente.id && (
+                          <IconButton 
+                            color="secondary"
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevenir la propagación del evento
+                              navigate(`/clientes/editar/${cliente.id}`);
+                            }}
+                            aria-label="Editar cliente"
+                            title="Editar cliente"
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -271,7 +301,7 @@ const ClientesList = () => {
         </TableContainer>
         
         <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
+          rowsPerPageOptions={[5, 10, 25, 50]}
           component="div"
           count={filteredClientes.length}
           rowsPerPage={rowsPerPage}

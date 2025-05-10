@@ -1,8 +1,14 @@
-import axios from 'axios';
+// src/api/axiosConfig.ts
+import axios, { AxiosRequestConfig } from 'axios';
+
+// Extiende el tipo de configuración para permitir `_retry`
+interface AxiosRequestConfigWithRetry extends AxiosRequestConfig {
+  _retry?: boolean;
+}
 
 // Configuración base para todas las peticiones
 const axiosInstance = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: 'http://localhost:8000/api/',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -12,77 +18,65 @@ const axiosInstance = axios.create({
 // Interceptor para añadir el token a todas las peticiones
 axiosInstance.interceptors.request.use(
   (config) => {
-    // Obtener el token del localStorage
     const token = localStorage.getItem('access_token');
-    
-    // Si existe el token, añadirlo a los headers
-    if (token) {
+
+    if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Interceptor para manejar respuestas y errores
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
-    
-    // Si es un error 401 (Unauthorized) y no estamos intentando refrescar el token
+    const originalRequest = error.config as AxiosRequestConfigWithRetry;
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       try {
-        // Intentar refrescar el token
         const refreshToken = localStorage.getItem('refresh_token');
-        
+
         if (!refreshToken) {
-          // No hay refresh token, redirigir al login
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
           window.location.href = '/login';
           return Promise.reject(error);
         }
-        
-        // Llamar al endpoint de refresh token (sin usar el interceptor para evitar ciclos)
+
         const response = await axios.post(
-          `${axiosInstance.defaults.baseURL}/auth/token/refresh/`,
-          { refresh: refreshToken }
+          'http://localhost:8000/api/auth/token/refresh/',
+          { refresh: refreshToken },
+          { headers: { 'Content-Type': 'application/json' } }
         );
-        
+
         if (response.data.access) {
-          // Guardar el nuevo token
           localStorage.setItem('access_token', response.data.access);
-          
-          // Actualizar el header y reintentar la petición original
-          axiosInstance.defaults.headers.common['Authorization'] = 
-            `Bearer ${response.data.access}`;
-          originalRequest.headers.Authorization = 
-            `Bearer ${response.data.access}`;
-            
+
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${response.data.access}`;
+          }
+
           return axiosInstance(originalRequest);
         }
       } catch (refreshError) {
-        // Error al refrescar el token, limpiar storage y redirigir a login
-        console.error('Error al refrescar el token. Redirigiendo al login...');
+        console.error('Error al refrescar el token:', refreshError);
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }
     }
-    
+
     // Manejo de otros errores
     if (error.response) {
-      // Error con respuesta del servidor
       switch (error.response.status) {
         case 400:
-          console.error('Datos incorrectos en la solicitud');
+          console.error('Datos incorrectos en la solicitud:', error.response.data);
           break;
         case 403:
           console.error('No tiene permisos para realizar esta acción');
@@ -97,13 +91,11 @@ axiosInstance.interceptors.response.use(
           console.error(`Error inesperado: ${error.response.status}`);
       }
     } else if (error.request) {
-      // La petición fue realizada pero no se recibió respuesta
       console.error('No se recibió respuesta del servidor. Verifique su conexión');
     } else {
-      // Error en la configuración de la petición
       console.error('Error al configurar la petición:', error.message);
     }
-    
+
     return Promise.reject(error);
   }
 );
