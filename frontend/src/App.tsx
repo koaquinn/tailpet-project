@@ -22,6 +22,8 @@ import MascotasList from './pages/mascotas/MascotasList';
 import MascotaForm from './pages/mascotas/MascotaForm';
 import HistorialMascota from './pages/historial/HistorialMascota';
 
+// Historial
+import HistorialList from './pages/historial/HistorialList';
 // Citas
 import CitasList from './pages/citas/CitasList';
 import CitaForm from './pages/citas/CitaForm';
@@ -156,7 +158,6 @@ function App() {
                 </ProtectedRoute>
               }
             />
-
             {/* Rutas de Inventario */}
             <Route
               path="inventario"

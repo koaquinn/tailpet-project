@@ -39,7 +39,8 @@ import {
   FilterList as FilterListIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material';
-import { getMascotas, getEspecies, getClientes, Mascota, Especie } from '../../api/mascotaApi';
+import { getMascotas, getEspecies, Mascota, Especie } from '../../api/mascotaApi';
+import { getClientes } from '../../api/clienteApi';
 import { Cliente } from '../../types/cliente';
 import { formatFullName, booleanToText, sexoToText } from '../../utils/formatters';
 import { useAuth } from '../../context/AuthContext';
@@ -75,6 +76,7 @@ const MascotasList = () => {
     severity: 'success'
   });
 
+  // Mapeamos clientes por ID para acceso rápido
   const clienteNombreMap = useMemo(() => {
     const map: Record<number, string> = {};
     clientes.forEach((c) => {
@@ -85,6 +87,7 @@ const MascotasList = () => {
     return map;
   }, [clientes]);
 
+  // Mapeamos especies por ID para acceso rápido
   const especieNombreMap = useMemo(() => {
     const map: Record<number, string> = {};
     especies.forEach((e) => {
@@ -94,6 +97,38 @@ const MascotasList = () => {
     });
     return map;
   }, [especies]);
+
+  // Enriquecemos las mascotas con la información de cliente y especie
+  const enrichMascotas = (mascotasData: Mascota[]) => {
+    return mascotasData.map(mascota => ({
+      ...mascota,
+      cliente_nombre: clienteNombreMap[mascota.cliente] || `Cliente #${mascota.cliente}`,
+      especie_nombre: especieNombreMap[mascota.especie] || `Especie #${mascota.especie}`
+    }));
+  };
+
+  // Actualizar las mascotas enriquecidas cuando cambien los mapas de clientes o especies
+  useEffect(() => {
+    if (mascotas.length > 0) {
+      const enrichedMascotas = enrichMascotas(mascotas);
+      setMascotas(enrichedMascotas);
+      
+      // Aplicamos búsqueda después de enriquecer
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const filtered = enrichedMascotas.filter((mascota) => {
+          const clienteNombre = clienteNombreMap[mascota.cliente]?.toLowerCase() || '';
+          return (
+            mascota.nombre.toLowerCase().includes(term) || 
+            clienteNombre.includes(term)
+          );
+        });
+        setFilteredMascotas(filtered);
+      } else {
+        setFilteredMascotas(enrichedMascotas);
+      }
+    }
+  }, [clienteNombreMap, especieNombreMap]);
 
   const fetchData = async () => {
     try {
@@ -118,17 +153,13 @@ const MascotasList = () => {
         getEspecies(),
       ]);
 
-      // Enriquecer los datos de mascotas con nombres
-      const mascotasEnriquecidas = mascotasData.results.map(mascota => ({
-        ...mascota,
-        especie_nombre: especieNombreMap[mascota.especie] || `Especie #${mascota.especie}`,
-        cliente_nombre: clienteNombreMap[mascota.cliente] || `Cliente #${mascota.cliente}`
-      }));
-
-      setMascotas(mascotasEnriquecidas);
-      setFilteredMascotas(mascotasEnriquecidas);
+      // Guardamos clientes y especies primero para que los mapas estén disponibles
       setClientes(clientesData.results || []);
       setEspecies(especiesData.results || []);
+      
+      // Luego configuramos las mascotas
+      setMascotas(mascotasData.results);
+      setFilteredMascotas(mascotasData.results);
     } catch (error) {
       console.error('Error:', error);
       setError('Error al cargar los datos. Inténtalo de nuevo.');
@@ -332,72 +363,67 @@ const MascotasList = () => {
                 </TableCell>
               </TableRow>
             ) : paginatedMascotas.length > 0 ? (
-              paginatedMascotas.map((mascota) => {
-                const clienteNombre = clienteNombreMap[mascota.cliente] || `Cliente #${mascota.cliente}`;
-                const especieNombre = especieNombreMap[mascota.especie] || `Especie #${mascota.especie}`;
-
-                return (
-                  <TableRow key={mascota.id} hover>
-                    <TableCell>{mascota.nombre}</TableCell>
-                    <TableCell>{clienteNombre}</TableCell>
-                    <TableCell>{especieNombre}</TableCell>
-                    <TableCell>{sexoToText(mascota.sexo)}</TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={booleanToText(mascota.esterilizado)}
-                        color={mascota.esterilizado ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={mascota.activo ? 'Activo' : 'Inactivo'}
-                        color={mascota.activo ? 'success' : 'error'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                        {canEdit && mascota.id && (
-                          <Tooltip title="Editar mascota">
-                            <IconButton 
-                              onClick={() => navigate(`/mascotas/editar/${mascota.id}`)} 
-                              color="primary" 
-                              size="small"
-                            >
-                              <EditIcon />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        
-                        {canViewHistory && mascota.id && (
-                          <Tooltip title="Historial médico">
-                            <IconButton 
-                              onClick={() => navigate(`/mascotas/${mascota.id}/historial`)} 
-                              color="secondary" 
-                              size="small"
-                            >
-                              <HealthIcon />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        
-                        {canViewHistory && mascota.id && (
-                          <Tooltip title="Vacunas">
-                            <IconButton 
-                              onClick={() => navigate(`/mascotas/${mascota.id}/vacunas`)} 
-                              color="info" 
-                              size="small"
-                            >
-                              <VaccineIcon />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
+              paginatedMascotas.map((mascota) => (
+                <TableRow key={mascota.id} hover>
+                  <TableCell>{mascota.nombre}</TableCell>
+                  <TableCell>{clienteNombreMap[mascota.cliente] || `Cliente #${mascota.cliente}`}</TableCell>
+                  <TableCell>{especieNombreMap[mascota.especie] || `Especie #${mascota.especie}`}</TableCell>
+                  <TableCell>{sexoToText(mascota.sexo)}</TableCell>
+                  <TableCell align="center">
+                    <Chip
+                      label={booleanToText(mascota.esterilizado)}
+                      color={mascota.esterilizado ? 'success' : 'default'}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell align="center">
+                    <Chip
+                      label={mascota.activo ? 'Activo' : 'Inactivo'}
+                      color={mascota.activo ? 'success' : 'error'}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell align="center">
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                      {canEdit && mascota.id && (
+                        <Tooltip title="Editar mascota">
+                          <IconButton 
+                            onClick={() => navigate(`/mascotas/editar/${mascota.id}`)} 
+                            color="primary" 
+                            size="small"
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      
+                      {canViewHistory && mascota.id && (
+                        <Tooltip title="Historial médico">
+                          <IconButton 
+                            onClick={() => navigate(`/mascotas/${mascota.id}/historial`)} 
+                            color="secondary" 
+                            size="small"
+                          >
+                            <HealthIcon />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      
+                      {canViewHistory && mascota.id && (
+                        <Tooltip title="Vacunas">
+                          <IconButton 
+                            onClick={() => navigate(`/mascotas/${mascota.id}/vacunas`)} 
+                            color="info" 
+                            size="small"
+                          >
+                            <VaccineIcon />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : (
               <TableRow>
                 <TableCell colSpan={7} align="center">
