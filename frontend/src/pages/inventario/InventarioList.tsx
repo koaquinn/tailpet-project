@@ -96,24 +96,38 @@ const InventarioList: React.FC = () => {
     motivo: 'Entrada de inventario'
   });
   
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [medicamentosData, lotesData] = await Promise.all([
-        inventarioApi.getMedicamentos({ activo: true }),
-        inventarioApi.getLotes()
-      ]);
-      
-      setMedicamentos(medicamentosData.results);
-      setLotes(lotesData.results);
-      setError(null);
-    } catch (error) {
-      console.error('Error al cargar inventario:', error);
-      setError('Error al cargar los datos de inventario');
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchData = async () => {
+  setLoading(true);
+  try {
+    const [medicamentosData, lotesData] = await Promise.all([
+      inventarioApi.getMedicamentos({ activo: true }),
+      inventarioApi.getLotes()
+    ]);
+    
+    // Asegurar que los precios sean números
+    const medicamentosConNumeros = medicamentosData.results.map(med => ({
+      ...med,
+      precio_venta: Number(med.precio_venta),
+      precio_compra: Number(med.precio_compra),
+      stock_minimo: Number(med.stock_minimo)
+    }));
+    
+    const lotesConNumeros = lotesData.results.map(lote => ({
+      ...lote,
+      precio_compra: Number(lote.precio_compra),
+      cantidad: Number(lote.cantidad)
+    }));
+    
+    setMedicamentos(medicamentosConNumeros);
+    setLotes(lotesConNumeros);
+    setError(null);
+  } catch (error) {
+    console.error('Error al cargar inventario:', error);
+    setError('Error al cargar los datos de inventario');
+  } finally {
+    setLoading(false);
+  }
+};
   
   useEffect(() => {
     fetchData();
@@ -210,21 +224,16 @@ const InventarioList: React.FC = () => {
   }
   
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" component="h1">
-          Inventario
-        </Typography>
+      <Container maxWidth="lg">
         <Button
           variant="contained"
           color="primary"
           startIcon={<AddIcon />}
           component={Link}
-          to="/inventario/nuevo-medicamento"
-        >
-          Nuevo Medicamento
+          to="/inventario/agregar"
+      >
+          Agregar Inventario
         </Button>
-      </Box>
       
       {error && (
         <Paper sx={{ p: 2, mb: 3, bgcolor: 'error.light', color: 'error.contrastText' }}>
@@ -287,7 +296,7 @@ const InventarioList: React.FC = () => {
                       <TableCell>{med.nombre}</TableCell>
                       <TableCell>{med.presentacion}</TableCell>
                       <TableCell>{med.tipo}</TableCell>
-                      <TableCell align="right">${med.precio_venta.toFixed(2)}</TableCell>
+                      <TableCell align="right">${Number(med.precio_venta.toFixed(2))}</TableCell>
                       <TableCell align="center">
                         <Chip 
                           label={med.activo ? 'Activo' : 'Inactivo'} 
@@ -368,7 +377,7 @@ const InventarioList: React.FC = () => {
                       <TableCell>{formatDate(lote.fecha_vencimiento)}</TableCell>
                       <TableCell align="right">{lote.cantidad}</TableCell>
                       <TableCell>{lote.proveedor_nombre}</TableCell>
-                      <TableCell align="right">${lote.precio_compra.toFixed(2)}</TableCell>
+                      <TableCell align="right">${Number(lote.precio_compra.toFixed(2))}</TableCell>
                       <TableCell align="center">
                         <IconButton 
                           color="primary" 

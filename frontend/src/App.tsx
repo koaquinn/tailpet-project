@@ -28,6 +28,7 @@ import CitaForm from './pages/citas/CitaForm';
 
 // Inventario
 import InventarioList from './pages/inventario/InventarioList';
+import AgregarInventario from './pages/inventario/AgregarInventario';
 
 // Facturación
 import FacturasList from './pages/facturacion/FacturasList';
@@ -164,6 +165,14 @@ function App() {
                   <InventarioList />
                 </ProtectedRoute>
               }
+            />
+            <Route
+              path="inventario/agregar"
+              element={
+                <ProtectedRoute requiredRoles={[ADMIN, VETERINARIO]}>
+                  <AgregarInventario />
+                </ProtectedRoute>
+              } 
             />
 
             {/* Rutas de Facturación */}
