@@ -1,5 +1,5 @@
 // src/pages/clientes/ClienteMascotas.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -18,7 +18,6 @@ import {
   Alert,
   Breadcrumbs,
   IconButton,
-  Tooltip,
   TablePagination
 } from '@mui/material';
 import {
@@ -38,79 +37,99 @@ interface MascotaEnriquecida extends Mascota {
   razaNombre?: string;
 }
 
-const ClienteMascotas = () => {
-  const { id } = useParams();
+// Tipos adicionales para mayor claridad
+interface Cliente {
+  id: number;
+  nombre: string;
+  apellido: string;
+  rut: string;
+  telefono: string | null;
+  email: string | null;
+  activo: boolean;
+}
+
+const ClienteMascotas: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const clienteId = Number(id);
   const navigate = useNavigate();
-  const [cliente, setCliente] = useState<any>(null);
+  const [cliente, setCliente] = useState<Cliente | null>(null);
   const [mascotas, setMascotas] = useState<MascotaEnriquecida[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
+  // Memoizar los manejadores de eventos para evitar recreaciones innecesarias
+  const handleChangePage = useCallback((event: unknown, newPage: number) => {
+    setPage(newPage);
+  }, []);
+
+  const handleChangeRowsPerPage = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  }, []);
+
+  // Memoizar la función de cálculo de edad para evitar recreaciones
+  const calcularEdad = useCallback((fechaNacimiento?: string, edad?: number): string => {
+    if (fechaNacimiento) {
+      const diff = new Date().getFullYear() - new Date(fechaNacimiento).getFullYear();
+      return `${diff} año${diff !== 1 ? 's' : ''}`;
+    }
+    return edad ? `${edad} año${edad !== 1 ? 's' : ''}` : 'N/A';
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setError(null);
+
+        // Obtener datos del cliente y sus mascotas en paralelo
         const [clienteData, mascotasData] = await Promise.all([
-          getCliente(Number(id)),
-          getMascotasByCliente(Number(id))
+          getCliente(clienteId),
+          getMascotasByCliente(clienteId)
         ]);
 
-        // Enriquecer mascotas con nombres de especie y raza
-        const mascotasEnriquecidas = await Promise.all(
-          mascotasData.results.map(async (mascota) => {
-            try {
-              const [especie, raza] = await Promise.all([
-                getEspecie(mascota.especie),
-                getRaza(mascota.raza)
-              ]);
-              return {
-                ...mascota,
-                especieNombre: especie.nombre,
-                razaNombre: raza.nombre
-              };
-            } catch (error) {
-              console.error('Error obteniendo detalles:', error);
-              return {
-                ...mascota,
-                especieNombre: 'Desconocido',
-                razaNombre: 'Desconocida'
-              };
-            }
-          })
-        );
+        // Optimización: extraer IDs únicos para evitar llamadas duplicadas
+        const especiesIds = Array.from(new Set(mascotasData.results.map(m => m.especie)));
+        const razasIds = Array.from(new Set(mascotasData.results.map(m => m.raza)));
+        
+        // Obtener todas las especies y razas necesarias en una sola vez
+        const [especiesList, razasList] = await Promise.all([
+          Promise.all(especiesIds.map(id => getEspecie(id))),
+          Promise.all(razasIds.map(id => getRaza(id)))
+        ]);
+        
+        // Crear mapas para acceso rápido
+        const especiesMap = new Map(especiesList.map(e => [e.id, e.nombre]));
+        const razasMap = new Map(razasList.map(r => [r.id, r.nombre]));
+        
+        // Enriquecer mascotas con nombres de especie y raza usando los mapas
+        const mascotasEnriquecidas = mascotasData.results.map(mascota => ({
+          ...mascota,
+          especieNombre: especiesMap.get(mascota.especie) || 'Desconocido',
+          razaNombre: razasMap.get(mascota.raza) || 'Desconocida'
+        }));
 
         setCliente(clienteData);
         setMascotas(mascotasEnriquecidas);
       } catch (err) {
+        console.error('Error al cargar los datos:', err);
         setError('Error al cargar los datos del cliente y sus mascotas');
-        console.error(err);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [id]);
+  }, [clienteId]);
 
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
+  // Memoizar las mascotas paginadas para evitar recálculos innecesarios
+  const mascotasPaginadas = useMemo(() => 
+    mascotas.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+  [mascotas, page, rowsPerPage]);
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const calcularEdad = (fechaNacimiento?: string, edad?: number) => {
-    if (fechaNacimiento) {
-      const diff = new Date().getFullYear() - new Date(fechaNacimiento).getFullYear();
-      return `${diff} año${diff !== 1 ? 's' : ''}`;
-    }
-    return edad ? `${edad} año${edad !== 1 ? 's' : ''}` : 'N/A';
-  };
-
+  // Renderizados condicionales
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" mt={4}>
@@ -168,7 +187,7 @@ const ClienteMascotas = () => {
               variant="contained"
               color="primary"
               startIcon={<Add />}
-              onClick={() => navigate(`/mascotas/nuevo?clienteId=${id}`)}
+              onClick={() => navigate(`/mascotas/nuevo?clienteId=${clienteId}`)}
             >
               Nueva Mascota
             </Button>
@@ -238,7 +257,7 @@ const ClienteMascotas = () => {
                       variant="text"
                       color="primary"
                       startIcon={<Add />}
-                      onClick={() => navigate(`/mascotas/nuevo?clienteId=${id}`)}
+                      onClick={() => navigate(`/mascotas/nuevo?clienteId=${clienteId}`)}
                       sx={{ mt: 1 }}
                     >
                       Agregar primera mascota
@@ -246,59 +265,57 @@ const ClienteMascotas = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                mascotas
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((mascota) => (
-                    <TableRow key={mascota.id} hover>
-                      <TableCell>{mascota.nombre}</TableCell>
-                      <TableCell>{mascota.especieNombre}</TableCell>
-                      <TableCell>{mascota.razaNombre}</TableCell>
-                      <TableCell>
-                        {calcularEdad(mascota.fecha_nacimiento, mascota.edad)}
-                      </TableCell>
-                      <TableCell>
-                        {mascota.sexo === 'M' ? 'Macho' : 'Hembra'}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={mascota.activo ? 'Activo' : 'Inactivo'}
-                          color={mascota.activo ? 'success' : 'error'}
+                mascotasPaginadas.map((mascota) => (
+                  <TableRow key={mascota.id} hover>
+                    <TableCell>{mascota.nombre}</TableCell>
+                    <TableCell>{mascota.especieNombre}</TableCell>
+                    <TableCell>{mascota.razaNombre}</TableCell>
+                    <TableCell>
+                      {calcularEdad(mascota.fecha_nacimiento, mascota.edad)}
+                    </TableCell>
+                    <TableCell>
+                      {mascota.sexo === 'M' ? 'Macho' : 'Hembra'}
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={mascota.activo ? 'Activo' : 'Inactivo'}
+                        color={mascota.activo ? 'success' : 'error'}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                        <IconButton
                           size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => navigate(`/mascotas/editar/${mascota.id}`)}
-                            aria-label="Editar mascota"
-                            title="Editar mascota"
-                          >
-                            <Edit />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="secondary"
-                            onClick={() => navigate(`/mascotas/${mascota.id}/historial`)}
-                            aria-label="Historial médico"
-                            title="Historial médico"
-                          >
-                            <MedicalServices />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="info"
-                            onClick={() => navigate(`/mascotas/${mascota.id}/vacunas`)}
-                            aria-label="Vacunas"
-                            title="Vacunas"
-                          >
-                            <Vaccines />
-                          </IconButton>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                          color="primary"
+                          onClick={() => navigate(`/mascotas/editar/${mascota.id}`)}
+                          aria-label="Editar mascota"
+                          title="Editar mascota"
+                        >
+                          <Edit />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="secondary"
+                          onClick={() => navigate(`/mascotas/${mascota.id}/historial`)}
+                          aria-label="Historial médico"
+                          title="Historial médico"
+                        >
+                          <MedicalServices />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="info"
+                          onClick={() => navigate(`/mascotas/${mascota.id}/vacunas`)}
+                          aria-label="Vacunas"
+                          title="Vacunas"
+                        >
+                          <Vaccines />
+                        </IconButton>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
