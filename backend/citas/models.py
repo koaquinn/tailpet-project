@@ -1,3 +1,50 @@
+# citas/models.py
 from django.db import models
+from django.conf import settings
+from core.models import BaseModel
+from mascotas.models import Mascota
+from core.validators import validar_fecha_futura, validar_cantidad_positiva
 
-# Create your models here.
+class Consulta(BaseModel):
+    ESTADOS = [
+        ('PROGRAMADA', 'Programada'),
+        ('COMPLETADA', 'Completada'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+    
+    TIPOS = [
+        ('RUTINA', 'Rutina'),
+        ('EMERGENCIA', 'Emergencia'),
+        ('SEGUIMIENTO', 'Seguimiento'),
+    ]
+    
+    mascota = models.ForeignKey(Mascota, on_delete=models.CASCADE, related_name='consultas_programadas')
+    veterinario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.PROTECT, 
+        related_name='consultas_asignadas'
+    )
+    fecha = models.DateTimeField(validators=[validar_fecha_futura])
+    duracion_estimada = models.PositiveIntegerField(
+        help_text="Duración en minutos",
+        validators=[validar_cantidad_positiva]
+    )
+    motivo = models.TextField()
+    diagnostico = models.TextField(blank=True, null=True)
+    observaciones = models.TextField(blank=True, null=True)
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='PROGRAMADA')
+    tipo = models.CharField(max_length=20, choices=TIPOS)
+    duracion_estimada = models.PositiveIntegerField(help_text="Duración en minutos")
+    
+    def __str__(self):
+        return f"Consulta para {self.mascota.nombre} - {self.fecha}"
+    
+    class Meta:
+        verbose_name = "Consulta"
+        verbose_name_plural = "Consultas"
+        indexes = [
+            models.Index(fields=['mascota']),
+            models.Index(fields=['veterinario']),
+            models.Index(fields=['fecha']),
+            models.Index(fields=['estado']),
+        ]

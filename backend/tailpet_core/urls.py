@@ -9,8 +9,12 @@ urlpatterns = [
     path('api/auth/', include('authentication.urls')),
     path('api/clientes/', include('clientes.urls')),
     path('api/mascotas/', include('mascotas.urls')),
-    
-    # Añadir otras URLs aquí conforme vayas implementando más apps
+    path('api/historial-medico/', include('historial_medico.urls')),
+    path('api/inventario/', include('inventario.urls')),
+    path('api/citas/', include('citas.urls')),
+    path('api/facturacion/', include('facturacion.urls')),
+    path('api/notificaciones/', include('notificaciones.urls')),
+    path('api/reportes/', include('reportes.urls')),
 ]
 
 if settings.DEBUG:

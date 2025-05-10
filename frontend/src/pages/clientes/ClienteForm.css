@@ -1,236 +1,175 @@
-/* ClienteForm.css */
+/* ClienteForm.css - Optimizado */
 
-/* Estilos generales */
-body, html {
-  margin: 0;
-  padding: 0;
-  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
-  height: 100%;
-  width: 100%;
-  box-sizing: border-box;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+:root {
+  /* Paleta de colores */
+  --color-primary: #6366f1;
+  --color-primary-dark: #4f46e5;
+  --color-background: #f0f9ff;
+  --color-text-dark: #111827;
+  --color-text-medium: #374151;
+  --color-border-light: #e5e7eb;
+  --color-border-medium: #d1d5db;
+  --color-input-bg: #f3f4f6;
+  
+  /* Sombras */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  
+  /* Bordes */
+  --radius-sm: 0.5rem;
+  --radius-md: 1rem;
 }
 
-/* Aplicar background a toda la aplicación */
-#root, body > div {
-  height: 100%;
+/* Estilos base */
+body {
+  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  background: linear-gradient(135deg, var(--color-background) 0%, #e0f2fe 100%);
+  margin: 0;
   min-height: 100vh;
-  width: 100%;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
 }
 
 /* Contenedor principal */
 .cliente-form-container {
-  padding: 2rem !important;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%) !important;
-  min-height: 100vh;
+  padding: 2rem;
   width: 100%;
 }
 
 /* Tarjeta del formulario */
 .cliente-form-card {
-  background-color: white !important;
-  border-radius: 1rem !important;
-  padding: 2.5rem !important;
-  width: 100%;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 
-              0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  background-color: white;
+  border-radius: var(--radius-md);
+  padding: 2.5rem;
+  box-shadow: var(--shadow-lg);
 }
 
-/* Títulos */
+/* Título del formulario */
 .cliente-form-title {
-  font-size: 1.875rem !important;
-  font-weight: 700 !important;
-  color: #111827 !important;
-  margin-bottom: 0.5rem !important;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-text-dark);
+  margin-bottom: 0.5rem;
 }
 
-/* Campos del formulario - sobreescribiendo Material UI */
+/* Campos de formulario */
 .cliente-form-field .MuiOutlinedInput-root {
-  border-radius: 0.5rem !important;
-  background-color: #f3f4f6 !important;
-  transition: all 0.3s ease !important;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-input-bg);
+  transition: all 0.2s ease;
 }
 
 .cliente-form-field .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
-  border-color: #d1d5db !important;
-}
-
-.cliente-form-field .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
-  border-color: #6366f1 !important;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1) !important;
+  border-color: var(--color-border-medium);
 }
 
 .cliente-form-field .MuiOutlinedInput-root.Mui-focused {
-  background-color: white !important;
+  background-color: white;
+}
+
+.cliente-form-field .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .cliente-form-field .MuiInputLabel-root.Mui-focused {
-  color: #6366f1 !important;
+  color: var(--color-primary);
 }
 
 /* Botones */
 .cliente-form-button {
-  border-radius: 0.5rem !important;
-  font-size: 1rem !important;
-  font-weight: 500 !important;
-  padding: 0.75rem 1.5rem !important;
-  text-transform: none !important;
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.625rem 1.25rem;
+  text-transform: none;
 }
 
 .cliente-form-button-primary {
-  background-color: #6366f1 !important;
-  color: white !important;
+  background-color: var(--color-primary);
+  color: white;
 }
 
 .cliente-form-button-primary:hover {
-  background-color: #4f46e5 !important;
+  background-color: var(--color-primary-dark);
 }
 
 .cliente-form-button-outline {
-  border: 1px solid #d1d5db !important;
-  color: #374151 !important;
+  border: 1px solid var(--color-border-medium);
+  color: var(--color-text-medium);
 }
 
 .cliente-form-button-outline:hover {
-  background-color: #f3f4f6 !important;
+  background-color: var(--color-input-bg);
 }
 
-/* Switch personalizado */
+/* Switch */
 .cliente-form-switch .MuiSwitch-colorPrimary.Mui-checked {
-  color: #6366f1 !important;
+  color: var(--color-primary);
 }
 
 .cliente-form-switch .MuiSwitch-colorPrimary.Mui-checked + .MuiSwitch-track {
-  background-color: #6366f1 !important;
+  background-color: var(--color-primary);
   opacity: 0.5;
 }
 
 /* Notificación (Snackbar) */
 .cliente-form-notification {
-  border-radius: 0.5rem !important;
+  border-radius: var(--radius-sm);
 }
 
 /* Spinner */
 .cliente-form-spinner {
-  color: white !important;
-  width: 20px !important;
-  height: 20px !important;
-  margin-right: 8px !important;
+  color: white;
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
 }
 
-/* Estilos para la barra lateral si existe en la aplicación */
-.MuiDrawer-paper {
-  background: white !important;
-  border-right: 1px solid #e5e7eb !important;
-}
-
-.MuiListItem-root.Mui-selected {
-  background-color: #eff6ff !important;
-  color: #6366f1 !important;
-  border-right: 3px solid #6366f1 !important;
-}
-
-.MuiListItem-root:hover {
-  background-color: #f3f4f6 !important;
-}
-
-/* Barra superior si existe */
-.MuiAppBar-root {
-  background-color: #4a7b9d !important;
-  color: #ffffff !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
-}
-
-/* Modificaciones para el layout general de la aplicación */
-.MuiContainer-root {
-  max-width: 1200px !important;
-}
-
-/* Layout completo para la aplicación */
-.app-layout {
-  display: flex;
-  min-height: 100vh;
-}
-
-.sidebar-container {
-  width: 250px;
-  flex-shrink: 0;
-  background-color: white;
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
-}
-
-.main-content {
-  flex-grow: 1;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  min-height: 100vh;
-  padding: 1.5rem;
-}
-
-/* Media queries para responsividad */
-@media (max-width: 960px) {
-  .cliente-form-card {
-    padding: 1.5rem !important;
-  }
-}
-
-@media (max-width: 600px) {
-  .cliente-form-container {
-    padding: 1rem !important;
-  }
-  
-  .cliente-form-card {
-    padding: 1rem !important;
-    border-radius: 0.5rem !important;
-  }
-}
-
-/* Solución definitiva para el corte de la tabla */
+/* Estructura de tablas */
 .table-container-wrapper {
   position: relative;
   overflow: visible;
-  padding-bottom: 20px; /* Espacio para tooltips */
+  padding-bottom: 20px;
 }
 
 .table-container-fix {
-  position: static !important; /* Cambia de relative a static */
   overflow-x: auto;
-  overflow-y: visible;
 }
 
-.table-fix {
-  position: relative;
-  z-index: 1;
-}
-
-/* Tooltips que salen del contenedor */
-.MuiTooltip-popper {
-  z-index: 1500 !important;
-  position: absolute !important;
-}
-
-.MuiTooltip-tooltip {
-  transform: none !important;
-  margin: 0 !important;
-  position: absolute !important;
-}
-
-/* Celdas de acción */
 .action-cell {
   position: relative;
   z-index: 2;
-  background: white; /* Fondo sólido para evitar transparencias */
+  background: white;
 }
 
 .action-buttons-container {
   display: flex;
   justify-content: center;
-  position: static;
 }
 
-/* Ajustes para el Paper contenedor */
-.MuiPaper-root.table-paper {
-  overflow: visible !important;
+.table-paper {
+  overflow: visible;
   position: relative;
-  z-index: 1;
+}
+
+/* Media queries */
+@media (max-width: 960px) {
+  .cliente-form-card {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .cliente-form-container {
+    padding: 1rem;
+  }
+  
+  .cliente-form-card {
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+  }
+  
+  .table-container-fix {
+    max-width: 100%;
+    overflow-x: auto;
+  }
 }
