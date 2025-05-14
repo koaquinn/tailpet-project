@@ -1,4 +1,4 @@
-// src/pages/citas/CitasList.tsx (nuevo)
+// src/pages/citas/CitasList.tsx (actualizado)
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -32,12 +32,14 @@ import {
   Search as SearchIcon,
   FilterList as FilterListIcon,
   Cancel as CancelIcon,
+  LocalHospital as HospitalIcon,
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { es } from 'date-fns/locale';
 import { format } from 'date-fns';
 import citasApi, { Consulta } from '../../api/citasApi';
+import consultaApi from '../../api/consultaApi'; // Importar el nuevo API de consultas
 import { useAuth } from '../../context/AuthContext';
 
 const CitasList: React.FC = () => {
@@ -45,6 +47,7 @@ const CitasList: React.FC = () => {
   const [consultas, setConsultas] = useState<Consulta[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [processingAction, setProcessingAction] = useState<number | null>(null); // Para controlar botones durante acciones
   const [filterDate, setFilterDate] = useState<Date | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('');
@@ -53,15 +56,33 @@ const CitasList: React.FC = () => {
   const { user } = useAuth();
 
   const handleCancelarConsulta = async (id: number) => {
-  try {
-    await citasApi.updateConsulta(id, { estado: 'CANCELADA' });
-    fetchConsultas(); // Refresca la lista luego de cancelar
-  } catch (err) {
-    console.error('Error al cancelar consulta:', err);
-    alert('Hubo un problema al cancelar la consulta');
-  }
-};
+    try {
+      setProcessingAction(id);
+      await citasApi.updateConsulta(id, { estado: 'CANCELADA' });
+      fetchConsultas(); // Refresca la lista luego de cancelar
+    } catch (err) {
+      console.error('Error al cancelar consulta:', err);
+      alert('Hubo un problema al cancelar la consulta');
+    } finally {
+      setProcessingAction(null);
+    }
+  };
 
+  const handleIniciarConsulta = async (id: number) => {
+    try {
+      setProcessingAction(id);
+      await consultaApi.iniciarConsulta(id);
+      navigate(`/citas/consulta/${id}`);
+    } catch (err) {
+      console.error('Error al iniciar consulta:', err);
+      alert('Hubo un problema al iniciar la consulta');
+      setProcessingAction(null);
+    }
+  };
+
+  const handleContinuarConsulta = (id: number) => {
+    navigate(`/citas/consulta/${id}`);
+  };
 
   const fetchConsultas = async () => {
     setLoading(true);
@@ -104,6 +125,8 @@ const CitasList: React.FC = () => {
     switch (status) {
       case 'PROGRAMADA':
         return 'primary';
+      case 'EN_CURSO':
+        return 'warning';
       case 'COMPLETADA':
         return 'success';
       case 'CANCELADA':
@@ -135,6 +158,9 @@ const CitasList: React.FC = () => {
       consulta.motivo.toLowerCase().includes(searchTerm.toLowerCase())
     );
   };
+
+  // Verificar si el usuario es veterinario o admin
+  const canManageConsulta = user?.rol === 'VETERINARIO' || user?.rol === 'ADMIN';
 
   const filteredConsultas = filterConsultas();
 
@@ -214,6 +240,7 @@ const CitasList: React.FC = () => {
               >
                 <MenuItem value="">Todos</MenuItem>
                 <MenuItem value="PROGRAMADA">Programada</MenuItem>
+                <MenuItem value="EN_CURSO">En curso</MenuItem>
                 <MenuItem value="COMPLETADA">Completada</MenuItem>
                 <MenuItem value="CANCELADA">Cancelada</MenuItem>
               </Select>
@@ -283,34 +310,89 @@ const CitasList: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Chip 
-                        label={consulta.estado} 
+                        label={
+                          consulta.estado === 'PROGRAMADA' ? 'Programada' :
+                          consulta.estado === 'EN_CURSO' ? 'En curso' :
+                          consulta.estado === 'COMPLETADA' ? 'Completada' : 'Cancelada'
+                        } 
                         color={getStatusColor(consulta.estado)} 
                         size="small" 
                       />
                     </TableCell>
                     <TableCell>
-                      <Tooltip title="Editar">
-                      <IconButton 
-                        color="primary" 
-                        size="small"
-                        component={Link}
-                        to={`/citas/${consulta.id}`}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      </Tooltip>
-                      {consulta.estado !== 'CANCELADA' && (
-                        <Tooltip title="Cancelar">
-                        <IconButton
-                          color="error"
+                      {consulta.estado === 'PROGRAMADA' && (
+                        <>
+                          <Tooltip title="Editar">
+                            <IconButton 
+                              color="primary" 
+                              size="small"
+                              component={Link}
+                              to={`/citas/${consulta.id}`}
+                              sx={{ mr: 1 }}
+                              disabled={processingAction === consulta.id}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                          
+                          {/* Botón para iniciar consulta (solo para veterinarios y admin) */}
+                          {canManageConsulta && (
+                            <Tooltip title="Iniciar Consulta">
+                              <IconButton 
+                                color="success" 
+                                size="small"
+                                onClick={() => handleIniciarConsulta(consulta.id!)}
+                                disabled={processingAction === consulta.id}
+                                sx={{ mr: 1 }}
+                              >
+                                <HospitalIcon />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          
+                          <Tooltip title="Cancelar">
+                            <IconButton
+                              color="error"
+                              size="small"
+                              onClick={() => handleCancelarConsulta(consulta.id!)}
+                              disabled={processingAction === consulta.id}
+                            >
+                              <CancelIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                      
+                      {consulta.estado === 'EN_CURSO' && canManageConsulta && (
+                        <Button
+                          variant="contained"
+                          color="warning"
                           size="small"
-                          onClick={() => handleCancelarConsulta(consulta.id!)}
+                          onClick={() => handleContinuarConsulta(consulta.id!)}
+                          startIcon={<HospitalIcon />}
                         >
-                          <CancelIcon />
-                        </IconButton>
+                          Continuar Consulta
+                        </Button>
+                      )}
+                      
+                      {consulta.estado === 'COMPLETADA' && (
+                        <Tooltip title="Ver Historial">
+                          <IconButton 
+                            color="primary" 
+                            size="small"
+                            component={Link}
+                            to={`/mascotas/${consulta.mascota}/historial`}
+                          >
+                            <EventIcon />
+                          </IconButton>
                         </Tooltip>
                       )}
-
+                      
+                      {consulta.estado === 'CANCELADA' && (
+                        <Typography variant="caption" color="text.secondary">
+                          No disponible
+                        </Typography>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

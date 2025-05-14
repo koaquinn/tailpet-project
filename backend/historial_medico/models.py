@@ -59,6 +59,18 @@ class Consulta(BaseModel):
     motivo_consulta = models.TextField()
     diagnostico = models.TextField()
     observaciones = models.TextField(blank=True, null=True)
+    
+    # Campos adicionales para capturar los datos clínicos
+    temperatura = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, 
+                                     help_text="Temperatura en grados Celsius")
+    peso = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True,
+                              help_text="Peso en kilogramos")
+    sintomas = models.TextField(blank=True, null=True)
+    tratamiento = models.TextField(blank=True, null=True)
+    
+    # Campo para vincular con la cita original (si existe)
+    cita_relacionada = models.PositiveIntegerField(null=True, blank=True, 
+                                                  help_text="ID de la cita original en el módulo de citas")
 
     def __str__(self):
         return f"Consulta de {self.historial.mascota.nombre} - {self.fecha}"
@@ -66,6 +78,14 @@ class Consulta(BaseModel):
     class Meta:
         verbose_name = "Consulta"
         verbose_name_plural = "Consultas"
+        # Evitar duplicados con un índice único
+        constraints = [
+            models.UniqueConstraint(
+                fields=['historial', 'fecha', 'cita_relacionada'],
+                name='unique_consulta_per_cita'
+            )
+        ]
+
 
 
 class Tratamiento(BaseModel):
