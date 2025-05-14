@@ -1,4 +1,3 @@
-# mascotas/models.py
 from django.db import models
 from core.models import BaseModel
 from clientes.models import Cliente

@@ -53,7 +53,6 @@ const menuItems: MenuEntry[] = [
   { text: 'Clientes', icon: <PeopleIcon />, path: '/clientes', roles: ['ADMIN', 'RECEPCIONISTA'] },
   { text: 'Mascotas', icon: <PetsIcon />, path: '/mascotas', roles: ['ADMIN', 'RECEPCIONISTA', 'VETERINARIO'] },
   { text: 'Citas', icon: <EventNoteIcon />, path: '/citas', roles: ['ADMIN', 'RECEPCIONISTA', 'VETERINARIO'] },
-  { text: 'Historiales', icon: <HealthAndSafetyIcon />, path: '/historiales', roles: ['ADMIN', 'VETERINARIO'] },
   { text: 'Inventario', icon: <MedicationIcon />, path: '/inventario', roles: ['ADMIN', 'VETERINARIO'] },
   { text: 'Facturación', icon: <ReceiptIcon />, path: '/facturacion', roles: ['ADMIN', 'RECEPCIONISTA'] },
   { text: 'Reportes', icon: <BarChartIcon />, path: '/reportes', roles: ['ADMIN'] },
