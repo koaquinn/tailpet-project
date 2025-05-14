@@ -1,5 +1,6 @@
+// src/pages/mascotas/MascotaForm.tsx
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -24,10 +25,13 @@ import { SelectChangeEvent } from '@mui/material/Select';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { es } from 'date-fns/locale';
-import { format } from 'date-fns';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import SaveIcon from '@mui/icons-material/Save';
-import PetsIcon from '@mui/icons-material/Pets';
+import { format, parseISO, isAfter } from 'date-fns';
+import {
+  ArrowBack as ArrowBackIcon,
+  Save as SaveIcon,
+  Pets as PetsIcon,
+  Cancel as CancelIcon
+} from '@mui/icons-material';
 import {
   getMascota,
   createMascota,
@@ -39,6 +43,7 @@ import {
   Raza,
 } from '../../api/mascotaApi';
 import { getClientes, Cliente } from '../../api/clienteApi';
+import { useAuth } from '../../context/AuthContext';
 
 interface FormErrors {
   nombre?: string;
@@ -54,7 +59,16 @@ interface FormErrors {
 const MascotaForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const isEdit = Boolean(id);
+  const { hasRole } = useAuth();
+  
+  // Verificar permisos
+  const canEdit = hasRole('ADMIN') || hasRole('RECEPCIONISTA');
+  
+  // Obtener clienteId de query params si existe
+  const searchParams = new URLSearchParams(location.search);
+  const preselectedClienteId = searchParams.get('clienteId');
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -63,12 +77,13 @@ const MascotaForm = () => {
   const [especies, setEspecies] = useState<Especie[]>([]);
   const [razas, setRazas] = useState<Raza[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [hasChanges, setHasChanges] = useState(false);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
   const [formData, setFormData] = useState<Mascota>({
     nombre: '',
-    cliente: 0,
+    cliente: preselectedClienteId ? Number(preselectedClienteId) : 0,
     especie: 0,
     raza: 0,
     fecha_nacimiento: today,
@@ -88,9 +103,18 @@ const MascotaForm = () => {
     severity: 'success',
   });
 
+  // Redireccionar si no tiene permisos
+  useEffect(() => {
+    if (!canEdit) {
+      navigate('/forbidden');
+    }
+  }, [canEdit, navigate]);
+
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
+        setDataLoading(true);
+        
         const [clientesData, especiesData] = await Promise.all([
           getClientes(),
           getEspecies(),
@@ -102,21 +126,29 @@ const MascotaForm = () => {
         if (isEdit && id) {
           const mascotaData = await getMascota(Number(id));
           setFormData({
-            nombre: mascotaData.nombre,
-            cliente: mascotaData.cliente,
-            especie: mascotaData.especie,
-            raza: mascotaData.raza,
-            fecha_nacimiento: mascotaData.fecha_nacimiento,
-            sexo: mascotaData.sexo,
-            esterilizado: mascotaData.esterilizado,
+            ...mascotaData,
+            // Asegurarse de que estos campos estén presentes
+            nombre: mascotaData.nombre || '',
+            cliente: mascotaData.cliente || 0,
+            especie: mascotaData.especie || 0,
+            raza: mascotaData.raza || 0,
+            fecha_nacimiento: mascotaData.fecha_nacimiento || today,
+            sexo: mascotaData.sexo || 'M',
+            esterilizado: mascotaData.esterilizado || false,
             microchip: mascotaData.microchip || '',
-            activo: mascotaData.activo,
+            activo: mascotaData.activo !== undefined ? mascotaData.activo : true,
           });
 
           if (mascotaData.especie) {
             const razasData = await getRazas(mascotaData.especie);
             setRazas(razasData.results || []);
           }
+        } else if (preselectedClienteId) {
+          // Si es un nuevo registro con cliente preseleccionado
+          setFormData(prev => ({
+            ...prev,
+            cliente: Number(preselectedClienteId)
+          }));
         }
       } catch (error) {
         showNotification('Error al cargar datos iniciales', 'error');
@@ -128,7 +160,7 @@ const MascotaForm = () => {
     };
 
     fetchInitialData();
-  }, [isEdit, id]);
+  }, [isEdit, id, preselectedClienteId]);
 
   // Cargar razas cuando cambia la especie
   useEffect(() => {
@@ -138,6 +170,7 @@ const MascotaForm = () => {
           const razasData = await getRazas(formData.especie);
           setRazas(razasData.results || []);
 
+          // Verificar si la raza actual es válida para la nueva especie
           const razaActualValida = razasData.results?.some(
             (raza) => raza.id === formData.raza,
           );
@@ -161,6 +194,13 @@ const MascotaForm = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.especie]);
 
+  // Detectar cambios en el formulario
+  useEffect(() => {
+    if (isEdit && !loading && !dataLoading) {
+      setHasChanges(true);
+    }
+  }, [formData, isEdit, loading, dataLoading]);
+
   const validateForm = () => {
     const newErrors: FormErrors = {};
 
@@ -179,10 +219,15 @@ const MascotaForm = () => {
       }
     }
 
-    const fechaNacimiento = new Date(formData.fecha_nacimiento);
-    const hoy = new Date();
-    if (fechaNacimiento > hoy) {
-      newErrors.fecha_nacimiento = 'La fecha de nacimiento no puede ser futura';
+    // Verificar que la fecha de nacimiento no sea futura
+    try {
+      const fechaNacimiento = parseISO(formData.fecha_nacimiento);
+      const hoy = new Date();
+      if (isAfter(fechaNacimiento, hoy)) {
+        newErrors.fecha_nacimiento = 'La fecha de nacimiento no puede ser futura';
+      }
+    } catch (error) {
+      newErrors.fecha_nacimiento = 'Fecha de nacimiento inválida';
     }
 
     setErrors(newErrors);
@@ -199,6 +244,8 @@ const MascotaForm = () => {
     if (errors[name as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
+    
+    setHasChanges(true);
   };
 
   const handleSelectChange = (e: SelectChangeEvent) => {
@@ -213,6 +260,8 @@ const MascotaForm = () => {
     if (errors[name as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
+    
+    setHasChanges(true);
   };
 
   const handleDateChange = (date: Date | null) => {
@@ -223,6 +272,8 @@ const MascotaForm = () => {
       if (errors.fecha_nacimiento) {
         setErrors((prev) => ({ ...prev, fecha_nacimiento: undefined }));
       }
+      
+      setHasChanges(true);
     }
   };
 
@@ -231,6 +282,18 @@ const MascotaForm = () => {
   };
 
   const handleCloseNotification = () => setNotification((prev) => ({ ...prev, open: false }));
+  
+  // Confirmar cancelación si hay cambios
+  const handleCancel = () => {
+    if (hasChanges) {
+      const confirmed = window.confirm('¿Estás seguro de cancelar? Todos los cambios se perderán.');
+      if (confirmed) {
+        navigate('/mascotas');
+      }
+    } else {
+      navigate('/mascotas');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -246,9 +309,18 @@ const MascotaForm = () => {
         await createMascota(formData);
         showNotification('Mascota creada correctamente', 'success');
       }
-      setTimeout(() => navigate('/mascotas'), 1500);
-    } catch (error) {
-      showNotification('Error al guardar la mascota. Inténtalo de nuevo.', 'error');
+      
+      // Redireccionar después de guardar
+      setTimeout(() => {
+        if (preselectedClienteId) {
+          navigate(`/clientes/${preselectedClienteId}/mascotas`);
+        } else {
+          navigate('/mascotas');
+        }
+      }, 1500);
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.detail || 'Error al guardar la mascota. Inténtalo de nuevo.';
+      showNotification(errorMsg, 'error');
       console.error('Error:', error);
     } finally {
       setSaving(false);
@@ -268,8 +340,12 @@ const MascotaForm = () => {
   return (
     <Container maxWidth="md">
       <Box sx={{ mb: 4 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/mascotas')}>
-          Volver a lista de mascotas
+        <Button 
+          variant="outlined" 
+          startIcon={<ArrowBackIcon />} 
+          onClick={() => navigate(preselectedClienteId ? `/clientes/${preselectedClienteId}/mascotas` : '/mascotas')}
+        >
+          {preselectedClienteId ? 'Volver a mascotas del cliente' : 'Volver a lista de mascotas'}
         </Button>
       </Box>
 
@@ -300,17 +376,18 @@ const MascotaForm = () => {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.cliente} disabled={saving} required>
+              <FormControl fullWidth error={!!errors.cliente} required>
                 <InputLabel>Cliente (Dueño)</InputLabel>
                 <Select
                   name="cliente"
                   value={formData.cliente ? formData.cliente.toString() : ''}
                   label="Cliente (Dueño)"
                   onChange={handleSelectChange}
+                  disabled={saving || Boolean(preselectedClienteId)}
                 >
                   <MenuItem value="">Seleccionar cliente</MenuItem>
                   {clientes.map((cliente) => (
-                    <MenuItem key={cliente.id} value={cliente.id?.toString()}>
+                    <MenuItem key={cliente.id} value={cliente.id?.toString() || ''}>
                       {cliente.nombre} {cliente.apellido} - {cliente.rut}
                     </MenuItem>
                   ))}
@@ -320,13 +397,14 @@ const MascotaForm = () => {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.especie} disabled={saving} required>
+              <FormControl fullWidth error={!!errors.especie} required>
                 <InputLabel>Especie</InputLabel>
                 <Select
                   name="especie"
                   value={formData.especie ? formData.especie.toString() : ''}
                   label="Especie"
                   onChange={handleSelectChange}
+                  disabled={saving}
                 >
                   <MenuItem value="">Seleccionar especie</MenuItem>
                   {especies.map((especie) => (
@@ -340,7 +418,7 @@ const MascotaForm = () => {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.raza} disabled={saving || !formData.especie} required>
+              <FormControl fullWidth error={!!errors.raza} required>
                 <InputLabel>Raza</InputLabel>
                 <Select
                   name="raza"
@@ -383,9 +461,15 @@ const MascotaForm = () => {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.sexo} disabled={saving} required>
+              <FormControl fullWidth error={!!errors.sexo} required>
                 <InputLabel>Sexo</InputLabel>
-                <Select name="sexo" value={formData.sexo} label="Sexo" onChange={handleSelectChange}>
+                <Select 
+                  name="sexo" 
+                  value={formData.sexo} 
+                  label="Sexo" 
+                  onChange={handleSelectChange}
+                  disabled={saving}
+                >
                   <MenuItem value="M">Macho</MenuItem>
                   <MenuItem value="H">Hembra</MenuItem>
                 </Select>
@@ -409,24 +493,48 @@ const MascotaForm = () => {
 
             <Grid item xs={12} md={6}>
               <FormControlLabel
-                control={<Switch checked={formData.esterilizado} onChange={handleChange} name="esterilizado" disabled={saving} />}
+                control={
+                  <Switch 
+                    checked={formData.esterilizado} 
+                    onChange={handleChange} 
+                    name="esterilizado" 
+                    disabled={saving} 
+                  />
+                }
                 label="Esterilizado"
               />
             </Grid>
 
             <Grid item xs={12} md={6}>
               <FormControlLabel
-                control={<Switch checked={formData.activo} onChange={handleChange} name="activo" disabled={saving} />}
+                control={
+                  <Switch 
+                    checked={formData.activo} 
+                    onChange={handleChange} 
+                    name="activo" 
+                    disabled={saving} 
+                  />
+                }
                 label="Mascota Activa"
               />
             </Grid>
 
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
-                <Button variant="outlined" onClick={() => navigate('/mascotas')} disabled={saving}>
+                <Button 
+                  variant="outlined" 
+                  onClick={handleCancel} 
+                  disabled={saving}
+                  startIcon={<CancelIcon />}
+                >
                   Cancelar
                 </Button>
-                <Button type="submit" variant="contained" startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />} disabled={saving}>
+                <Button 
+                  type="submit" 
+                  variant="contained" 
+                  startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />} 
+                  disabled={saving}
+                >
                   {saving ? 'Guardando...' : isEdit ? 'Actualizar' : 'Guardar'}
                 </Button>
               </Box>

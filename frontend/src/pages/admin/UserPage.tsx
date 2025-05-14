@@ -1,22 +1,33 @@
-// src/pages/UsersPage.tsx
-import React, { useState, useEffect, ChangeEvent, FC } from 'react';
-import authApi, { User as ApiUser, PaginatedResponse, UpdateUserDto } from '../../api/authApi';
+// src/pages/admin/UserPage.tsx (corregido)
+import React, { useState, useEffect } from 'react';
+import {
+  Container,
+  Typography,
+  Box,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  FormControl,
+  Select,
+  MenuItem,
+  Button,
+  CircularProgress,
+  Alert
+} from '@mui/material';
+import { SelectChangeEvent } from '@mui/material/Select';
+import authApi, { User, Role } from '../../api/authApi';
 import { useAuth } from '../../context/AuthContext';
 
-interface Role {
-  id: number;
-  nombre: string;
-  descripcion: string;
-}
-
-// ApiUser ahora define 'rol: string'
-interface User extends ApiUser {}
-
-const UsersPage: FC = () => {
+const UserPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [updateLoading, setUpdateLoading] = useState<number | null>(null);
 
   const { hasRole } = useAuth();
 
@@ -25,7 +36,7 @@ const UsersPage: FC = () => {
     try {
       const [usersRes, rolesRes] = await Promise.all([
         authApi.getUsers(),
-        authApi.getRoles(),           // usamos getRoles de authApi
+        authApi.getRoles(),
       ]);
       setUsers(usersRes.results);
       setRoles(rolesRes.results);
@@ -42,88 +53,124 @@ const UsersPage: FC = () => {
   }, []);
 
   const changeRole = async (userId: number, roleId: number) => {
-    setLoading(true);
+    setUpdateLoading(userId);
     try {
-      const payload: UpdateUserDto = { rol_id: roleId };
-      await authApi.updateUser(userId, payload);
+      await authApi.updateUser(userId, { rol_id: roleId });
       await fetchData();
     } catch (err) {
       console.error(err);
       setError('Error al actualizar el rol');
     } finally {
-      setLoading(false);
+      setUpdateLoading(null);
     }
   };
 
   if (!hasRole('ADMIN')) {
     return (
-      <div className="p-4">
-        <h1 className="text-xl font-bold text-red-600">Acceso denegado</h1>
-        <p>No tienes permisos para ver esta página.</p>
-      </div>
+      <Container>
+        <Alert severity="error" sx={{ mt: 4 }}>
+          No tienes permisos para ver esta página.
+        </Alert>
+      </Container>
     );
   }
 
-  if (loading) return <div className="p-4">Cargando…</div>;
-  if (error)  return <div className="p-4 text-red-600 font-bold">{error}</div>;
+  if (loading) {
+    return (
+      <Container sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+        <CircularProgress />
+      </Container>
+    );
+  }
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Administración de Usuarios</h1>
-      <div className="overflow-x-auto bg-white shadow rounded-lg mb-8">
-        <table className="min-w-full table-auto divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              {['Usuario', 'Nombre', 'Email', 'Rol', 'Acciones'].map((h) => (
-                <th
-                  key={h}
-                  className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {users.map((u) => (
-              <tr key={u.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">{u.username}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{u.first_name} {u.last_name}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{u.email}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800">
-                    {u.rol}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <select
-                    defaultValue=""
-                    className="rounded-md border border-gray-300 py-1 px-2 text-sm"
-                    onChange={(e: ChangeEvent<HTMLSelectElement>) => {
-                      const newRole = Number(e.target.value);
-                      if (newRole) changeRole(u.id, newRole);
-                      e.currentTarget.value = '';
-                    }}
-                  >
-                    <option value="" disabled>Cambiar rol…</option>
-                    {roles.map((r) => (
-                      <option
-                        key={r.id}
-                        value={r.id}
-                        disabled={r.nombre === u.rol}
+    <Container maxWidth="lg">
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Administración de Usuarios
+        </Typography>
+        
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+            <Button onClick={fetchData} color="inherit" size="small" sx={{ ml: 2 }}>
+              Reintentar
+            </Button>
+          </Alert>
+        )}
+        
+        <Paper sx={{ mt: 3 }}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Usuario</TableCell>
+                  <TableCell>Nombre</TableCell>
+                  <TableCell>Email</TableCell>
+                  <TableCell>Rol</TableCell>
+                  <TableCell align="center">Acciones</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id} hover>
+                    <TableCell>{user.username}</TableCell>
+                    <TableCell>
+                      {user.first_name} {user.last_name}
+                    </TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>
+                      <Box 
+                        component="span" 
+                        sx={{ 
+                          py: 0.5, 
+                          px: 1.5, 
+                          borderRadius: '4px',
+                          bgcolor: user.rol === 'ADMIN' ? 'error.100' : 
+                                   user.rol === 'VETERINARIO' ? 'info.100' : 'success.100',
+                          color: user.rol === 'ADMIN' ? 'error.700' : 
+                                 user.rol === 'VETERINARIO' ? 'info.700' : 'success.700',
+                          fontWeight: 'medium',
+                          fontSize: '0.875rem'
+                        }}
                       >
-                        {r.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+                        {user.rol}
+                      </Box>
+                    </TableCell>
+                    <TableCell align="center">
+                      <FormControl size="small" sx={{ minWidth: 150 }}>
+                        <Select
+                          displayEmpty
+                          value=""
+                          onChange={(e: SelectChangeEvent) => {
+                            const newRoleId = Number(e.target.value);
+                            if (newRoleId) changeRole(user.id, newRoleId);
+                          }}
+                          disabled={updateLoading === user.id}
+                          renderValue={() => "Cambiar rol..."}
+                        >
+                          {roles.map((role) => (
+                            <MenuItem
+                              key={role.id}
+                              value={role.id.toString()}
+                              disabled={role.nombre === user.rol}
+                            >
+                              {role.nombre}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      {updateLoading === user.id && <CircularProgress size={20} sx={{ ml: 1 }} />}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      </Box>
+    </Container>
   );
 };
 
-export default UsersPage;
+export default UserPage;

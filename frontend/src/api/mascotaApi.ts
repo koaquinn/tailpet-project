@@ -1,5 +1,5 @@
 // src/api/mascotaApi.ts
-import axios from 'axios';
+import axiosInstance from './axiosConfig';
 import { 
   Mascota, 
   Especie, 
@@ -9,26 +9,34 @@ import {
   RazaResponse 
 } from '../types/mascota';
 
-const API_URL = 'http://localhost:8000/api';
-
-// Re-exportamos los tipos para mantener compatibilidad con tu código existente
+// Re-exportamos los tipos para mantener compatibilidad
 export type { Mascota, Especie, Raza };
 
 // Mascotas
-export const getMascotas = async (): Promise<MascotaResponse> => {
+export const getMascotas = async (params?: { 
+  page?: number; 
+  page_size?: number;
+  cliente?: number;
+  activo?: boolean;
+}): Promise<MascotaResponse> => {
   try {
-    const response = await axios.get(`${API_URL}/mascotas/mascotas/`);
-    return response.data;
+    const { data } = await axiosInstance.get<MascotaResponse>('/mascotas/mascotas/', { params });
+    return data;
   } catch (error) {
     console.error("Error fetching mascotas:", error);
     throw error;
   }
 };
 
+export const getClientes = async () => {
+  const response = await axiosInstance.get('/clientes/');
+  return response.data;
+};
+
 export const getMascota = async (id: number): Promise<Mascota> => {
   try {
-    const response = await axios.get(`${API_URL}/mascotas/mascotas/${id}/`);
-    return response.data;
+    const { data } = await axiosInstance.get<Mascota>(`/mascotas/mascotas/${id}/`);
+    return data;
   } catch (error) {
     console.error(`Error fetching mascota ${id}:`, error);
     throw error;
@@ -37,8 +45,8 @@ export const getMascota = async (id: number): Promise<Mascota> => {
 
 export const createMascota = async (mascotaData: Mascota): Promise<Mascota> => {
   try {
-    const response = await axios.post(`${API_URL}/mascotas/mascotas/`, mascotaData);
-    return response.data;
+    const { data } = await axiosInstance.post<Mascota>('/mascotas/mascotas/', mascotaData);
+    return data;
   } catch (error) {
     console.error("Error creating mascota:", error);
     throw error;
@@ -47,8 +55,8 @@ export const createMascota = async (mascotaData: Mascota): Promise<Mascota> => {
 
 export const updateMascota = async (id: number, mascotaData: Mascota): Promise<Mascota> => {
   try {
-    const response = await axios.put(`${API_URL}/mascotas/mascotas/${id}/`, mascotaData);
-    return response.data;
+    const { data } = await axiosInstance.put<Mascota>(`/mascotas/mascotas/${id}/`, mascotaData);
+    return data;
   } catch (error) {
     console.error(`Error updating mascota ${id}:`, error);
     throw error;
@@ -57,7 +65,7 @@ export const updateMascota = async (id: number, mascotaData: Mascota): Promise<M
 
 export const deleteMascota = async (id: number): Promise<boolean> => {
   try {
-    await axios.delete(`${API_URL}/mascotas/mascotas/${id}/`);
+    await axiosInstance.delete(`/mascotas/mascotas/${id}/`);
     return true;
   } catch (error) {
     console.error(`Error deleting mascota ${id}:`, error);
@@ -68,8 +76,8 @@ export const deleteMascota = async (id: number): Promise<boolean> => {
 // Especies
 export const getEspecies = async (): Promise<EspecieResponse> => {
   try {
-    const response = await axios.get(`${API_URL}/mascotas/especies/`);
-    return response.data;
+    const { data } = await axiosInstance.get<EspecieResponse>('/mascotas/especies/');
+    return data;
   } catch (error) {
     console.error("Error fetching especies:", error);
     throw error;
@@ -78,18 +86,30 @@ export const getEspecies = async (): Promise<EspecieResponse> => {
 
 export const getEspecie = async (id: number): Promise<Especie> => {
   try {
-    const response = await axios.get(`${API_URL}/mascotas/especies/${id}/`);
-    return response.data;
+    const { data } = await axiosInstance.get<Especie>(`/mascotas/especies/${id}/`);
+    return data;
   } catch (error) {
     console.error(`Error fetching especie ${id}:`, error);
     throw error;
   }
 };
 
+export const createEspecie = async (especieData: Omit<Especie, 'id'>): Promise<Especie> => {
+  try {
+    const { data } = await axiosInstance.post<Especie>('/mascotas/especies/', especieData);
+    return data;
+  } catch (error) {
+    console.error("Error creating especie:", error);
+    throw error;
+  }
+};
+
 export const getMascotasByCliente = async (clienteId: number): Promise<MascotaResponse> => {
   try {
-    const response = await axios.get(`${API_URL}/mascotas/mascotas/?cliente=${clienteId}`);
-    return response.data;
+    const { data } = await axiosInstance.get<MascotaResponse>('/mascotas/mascotas/', {
+      params: { cliente: clienteId }
+    });
+    return data;
   } catch (error) {
     console.error(`Error fetching mascotas for cliente ${clienteId}:`, error);
     throw error;
@@ -99,12 +119,9 @@ export const getMascotasByCliente = async (clienteId: number): Promise<MascotaRe
 // Razas
 export const getRazas = async (especieId?: number): Promise<RazaResponse> => {
   try {
-    const url = especieId 
-      ? `${API_URL}/mascotas/razas/?especie=${especieId}` 
-      : `${API_URL}/mascotas/razas/`;
-      
-    const response = await axios.get(url);
-    return response.data;
+    const params = especieId ? { especie: especieId } : undefined;
+    const { data } = await axiosInstance.get<RazaResponse>('/mascotas/razas/', { params });
+    return data;
   } catch (error) {
     console.error("Error fetching razas:", error);
     throw error;
@@ -113,10 +130,91 @@ export const getRazas = async (especieId?: number): Promise<RazaResponse> => {
 
 export const getRaza = async (id: number): Promise<Raza> => {
   try {
-    const response = await axios.get(`${API_URL}/mascotas/razas/${id}/`);
-    return response.data;
+    const { data } = await axiosInstance.get<Raza>(`/mascotas/razas/${id}/`);
+    return data;
   } catch (error) {
     console.error(`Error fetching raza ${id}:`, error);
+    throw error;
+  }
+};
+
+export const createRaza = async (razaData: Omit<Raza, 'id'>): Promise<Raza> => {
+  try {
+    const { data } = await axiosInstance.post<Raza>('/mascotas/razas/', razaData);
+    return data;
+  } catch (error) {
+    console.error("Error creating raza:", error);
+    throw error;
+  }
+};
+
+// Fotos de mascotas
+export const getFotosMascota = async (mascotaId: number): Promise<any> => {
+  try {
+    const { data } = await axiosInstance.get('/mascotas/fotos/', {
+      params: { mascota: mascotaId }
+    });
+    return data;
+  } catch (error) {
+    console.error(`Error fetching fotos for mascota ${mascotaId}:`, error);
+    throw error;
+  }
+};
+
+export const uploadFotoMascota = async (mascotaId: number, fotoFile: File, esPrincipal: boolean = false): Promise<any> => {
+  try {
+    const formData = new FormData();
+    formData.append('mascota', mascotaId.toString());
+    formData.append('url_foto', fotoFile);
+    formData.append('es_principal', esPrincipal.toString());
+
+    const { data } = await axiosInstance.post('/mascotas/fotos/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return data;
+  } catch (error) {
+    console.error(`Error uploading foto for mascota ${mascotaId}:`, error);
+    throw error;
+  }
+};
+
+// Historial de mascotas
+export const getHistorialMascota = async (mascotaId: number): Promise<any> => {
+  try {
+    const { data } = await axiosInstance.get(`/mascotas/mascotas/${mascotaId}/historial_completo/`);
+    return data;
+  } catch (error) {
+    console.error(`Error fetching historial for mascota ${mascotaId}:`, error);
+    throw error;
+  }
+};
+
+// Registro de pesos
+export const getPesosMascota = async (mascotaId: number): Promise<any> => {
+  try {
+    const { data } = await axiosInstance.get('/mascotas/pesos/', {
+      params: { mascota: mascotaId }
+    });
+    return data;
+  } catch (error) {
+    console.error(`Error fetching pesos for mascota ${mascotaId}:`, error);
+    throw error;
+  }
+};
+
+export const registrarPesoMascota = async (mascotaId: number, peso: number, fecha: string, notas?: string): Promise<any> => {
+  try {
+    const { data } = await axiosInstance.post('/mascotas/pesos/', {
+      mascota: mascotaId,
+      peso,
+      fecha_registro: fecha,
+      notas
+    });
+    return data;
+  } catch (error) {
+    console.error(`Error registering peso for mascota ${mascotaId}:`, error);
     throw error;
   }
 };
