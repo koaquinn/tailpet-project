@@ -1,13 +1,25 @@
-# inventario/views.py
-from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.db import transaction, models
+from django.utils import timezone
 from .models import Proveedor, DireccionProveedor, Medicamento, LoteMedicamento, MovimientoInventario
 from .serializers import (ProveedorSerializer, DireccionProveedorSerializer, 
                           MedicamentoSerializer, LoteMedicamentoSerializer, 
                           MovimientoInventarioSerializer)
 from django_filters.rest_framework import DjangoFilterBackend
 from .filters import MedicamentoFilter, LoteMedicamentoFilter
+
+class ProveedorViewSet(viewsets.ModelViewSet):
+    queryset = Proveedor.objects.all()
+    serializer_class = ProveedorSerializer
+    filterset_fields = ['tipo', 'activo']
+    search_fields = ['nombre', 'email']
+
+class DireccionProveedorViewSet(viewsets.ModelViewSet):
+    queryset = DireccionProveedor.objects.all()
+    serializer_class = DireccionProveedorSerializer
+    filterset_fields = ['proveedor', 'ciudad', 'es_principal']
 
 class MedicamentoViewSet(viewsets.ModelViewSet):
     queryset = Medicamento.objects.all()
@@ -16,6 +28,7 @@ class MedicamentoViewSet(viewsets.ModelViewSet):
     filterset_class = MedicamentoFilter
     search_fields = ['nombre', 'descripcion']
     ordering_fields = ['nombre', 'precio_venta', 'stock_minimo']
+    filterset_fields = ['tipo', 'proveedor', 'activo', 'requiere_receta']
 
     @action(detail=True, methods=['get'])
     def stock_disponible(self, request, pk=None):
@@ -36,90 +49,85 @@ class MedicamentoViewSet(viewsets.ModelViewSet):
         
         return Response(data)
     
-    @action(detail=True, methods=['post'], url_path='registrar-entrada')
+    @action(detail=True, methods=['post'], url_path='registrar-entrada', url_name='registrar-entrada')
     def registrar_entrada(self, request, pk=None):
         """
         Registra una entrada de inventario para este medicamento
         """
-        medicamento = self.get_object()
-        data = request.data.copy()
-        
-        # Validar datos
-        if 'lote_id' not in data and ('numero_lote' not in data or 'fecha_vencimiento' not in data):
-            return Response({
-                'error': 'Debe proporcionar lote_id o información para un nuevo lote'
-            }, status=400)
-        
-        with transaction.atomic():
-            # Determinar lote a actualizar o crear
-            if 'lote_id' in data:
-                try:
-                    lote = LoteMedicamento.objects.get(id=data['lote_id'])
-                except LoteMedicamento.DoesNotExist:
-                    return Response({'error': 'Lote no encontrado'}, status=404)
-            else:
+        try:
+            medicamento = self.get_object()
+            data = request.data.copy()
+
+            # Validación básica de datos requeridos
+            required_fields = ['cantidad', 'numero_lote', 'fecha_vencimiento', 'proveedor_id', 'precio_compra']
+            if not all(field in data for field in required_fields):
+                return Response(
+                    {'error': f'Faltan campos requeridos: {", ".join(required_fields)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Validación de la cantidad
+            cantidad = int(data.get('cantidad', 0))
+            if cantidad <= 0:
+                return Response(
+                    {'error': 'La cantidad debe ser positiva y mayor a cero.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            with transaction.atomic():
                 # Crear nuevo lote
                 lote_data = {
                     'medicamento': medicamento.id,
                     'numero_lote': data['numero_lote'],
                     'fecha_vencimiento': data['fecha_vencimiento'],
-                    'cantidad': 0,  # Inicialmente sin stock
+                    'cantidad': 0,  # Se actualizará con el movimiento
                     'fecha_ingreso': timezone.now().date(),
                     'proveedor': data['proveedor_id'],
                     'precio_compra': data['precio_compra']
                 }
+                
                 lote_serializer = LoteMedicamentoSerializer(data=lote_data)
                 lote_serializer.is_valid(raise_exception=True)
                 lote = lote_serializer.save()
+                
+                # Registrar movimiento
+                movimiento_data = {
+                    'medicamento': medicamento.id,
+                    'lote': lote.id,
+                    'tipo': 'ENTRADA',
+                    'cantidad': cantidad,
+                    'fecha': timezone.now(),
+                    'usuario': request.user.id,
+                    'motivo': data.get('motivo', 'Entrada de inventario'),
+                    'afecta_stock': True
+                }
+                
+                movimiento_serializer = MovimientoInventarioSerializer(data=movimiento_data)
+                movimiento_serializer.is_valid(raise_exception=True)
+                movimiento_serializer.save()
+                
+                # Actualizar cantidad en lote (podría hacerse con signal)
+                lote.cantidad += cantidad
+                lote.save()
+                
+            return Response(
+                {'status': 'Entrada registrada correctamente', 'lote_id': lote.id},
+                status=status.HTTP_201_CREATED
+            )
             
-            # Registrar movimiento de inventario
-            movimiento_data = {
-                'medicamento': medicamento.id,
-                'lote': lote.id,
-                'tipo': 'ENTRADA',
-                'cantidad': data['cantidad'],
-                'fecha': timezone.now(),
-                'usuario': request.user.id,
-                'motivo': data.get('motivo', 'Entrada de inventario'),
-                'afecta_stock': True
-            }
-            
-            movimiento_serializer = MovimientoInventarioSerializer(data=movimiento_data)
-            movimiento_serializer.is_valid(raise_exception=True)
-            movimiento_serializer.save()
-            
-            # El stock se actualiza automáticamente por el signal
-            
-        return Response({'status': 'Entrada registrada correctamente'})
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 class LoteMedicamentoViewSet(viewsets.ModelViewSet):
     queryset = LoteMedicamento.objects.all()
     serializer_class = LoteMedicamentoSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_class = LoteMedicamentoFilter
-    ordering_fields = ['fecha_vencimiento', 'cantidad']
-
-class ProveedorViewSet(viewsets.ModelViewSet):
-    queryset = Proveedor.objects.all()
-    serializer_class = ProveedorSerializer
-    filterset_fields = ['tipo', 'activo']
-    search_fields = ['nombre', 'email']
-
-class DireccionProveedorViewSet(viewsets.ModelViewSet):
-    queryset = DireccionProveedor.objects.all()
-    serializer_class = DireccionProveedorSerializer
-    filterset_fields = ['proveedor', 'ciudad', 'es_principal']
-
-class MedicamentoViewSet(viewsets.ModelViewSet):
-    queryset = Medicamento.objects.all()
-    serializer_class = MedicamentoSerializer
-    filterset_fields = ['tipo', 'proveedor', 'activo', 'requiere_receta']
-    search_fields = ['nombre', 'descripcion']
-
-class LoteMedicamentoViewSet(viewsets.ModelViewSet):
-    queryset = LoteMedicamento.objects.all()
-    serializer_class = LoteMedicamentoSerializer
     filterset_fields = ['medicamento', 'proveedor']
+    ordering_fields = ['fecha_vencimiento', 'cantidad']
 
 class MovimientoInventarioViewSet(viewsets.ModelViewSet):
     queryset = MovimientoInventario.objects.all()
