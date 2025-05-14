@@ -246,33 +246,44 @@ const InventarioAdd: React.FC = () => {
 
   // Funciones para enviar los formularios
   const handleSubmitLote = async () => {
-    try {
-      setLoading(true);
-      await inventarioApi.registrarEntrada(
-        Number(nuevoLote.medicamento_id), 
-        {
-          cantidad: nuevoLote.cantidad,
-          numero_lote: nuevoLote.numero_lote,
-          fecha_vencimiento: format(
-            parse(nuevoLote.fecha_vencimiento, 'dd-MM-yyyy', new Date()), 
-            'yyyy-MM-dd'
-          ),
-          proveedor_id: nuevoLote.proveedor_id,
-          precio_compra: nuevoLote.precio_compra,
-          motivo: nuevoLote.motivo
-        }
-      );
-      
-      navigate('/inventario', { 
-        state: { success: 'Lote registrado correctamente' } 
-      });
-    } catch (error) {
-      console.error('Error al registrar lote:', error);
-      setError('Error al registrar el lote');
-    } finally {
-      setLoading(false);
+  try {
+    // Validación adicional en el frontend
+    if (nuevoLote.cantidad <= 0) {
+      setError('La cantidad debe ser un número positivo');
+      return;
     }
-  };
+
+    setLoading(true);
+    setError(null);
+
+    // Asegúrate de convertir los tipos correctamente
+    const entradaData = {
+      cantidad: Number(nuevoLote.cantidad),
+      numero_lote: nuevoLote.numero_lote,
+      fecha_vencimiento: format(
+        parse(nuevoLote.fecha_vencimiento, 'dd-MM-yyyy', new Date()),
+        'yyyy-MM-dd'
+      ),
+      proveedor_id: Number(nuevoLote.proveedor_id),
+      precio_compra: Number(nuevoLote.precio_compra),
+      motivo: nuevoLote.motivo || 'Entrada de inventario'
+    };
+
+    const response = await inventarioApi.registrarEntrada(
+      Number(nuevoLote.medicamento_id),
+      entradaData
+    );
+
+    navigate('/inventario', { 
+      state: { success: 'Lote registrado correctamente' } 
+    });
+  } catch (error: any) {
+    console.error('Error al registrar lote:', error);
+    setError(error.response?.data?.error || 'Error al registrar el lote');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSubmitMedicamento = async () => {
     try {
@@ -430,10 +441,13 @@ const InventarioAdd: React.FC = () => {
                   label="Cantidad"
                   type="number"
                   value={nuevoLote.cantidad}
-                  onChange={handleLoteChange}
+                  onChange={(e) => {
+                  const value = Math.max(1, parseInt(e.target.value) || 0); // Asegura que nunca sea menor a 1
+                      setNuevoLote({ ...nuevoLote, cantidad: value });
+                      }}
                   InputProps={{ inputProps: { min: 1 } }}
                   required
-                />
+                  />
               </Grid>
               
               <Grid item xs={12} sm={6}>
