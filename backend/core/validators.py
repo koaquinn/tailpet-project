@@ -6,9 +6,15 @@ def validar_fecha_futura(value):
     """
     Valida que una fecha sea en el futuro
     """
-    if value < timezone.now().date():
+    # Convertir value a date si es un datetime
+    if hasattr(value, 'date'):
+        value_date = value.date()
+    else:
+        value_date = value
+    
+    if value_date < timezone.now().date():
         raise ValidationError('La fecha debe ser futura')
-
+    
 def validar_fecha_pasada(value):
     """
     Valida que una fecha sea en el pasado
