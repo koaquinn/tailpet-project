@@ -1,4 +1,4 @@
-// src/App.tsx (modificado)
+// src/App.tsx (actualizado)
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
@@ -24,9 +24,11 @@ import HistorialMascota from './pages/historial/HistorialMascota';
 
 // Historial
 import HistorialList from './pages/historial/HistorialList';
+
 // Citas
 import CitasList from './pages/citas/CitasList';
 import CitaForm from './pages/citas/CitaForm';
+import ConsultaPanel from './pages/citas/ConsultaPanel';
 
 // Inventario
 import InventarioList from './pages/inventario/InventarioList';
@@ -158,6 +160,16 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            {/* Nueva ruta para el panel de consulta */}
+            <Route
+              path="citas/consulta/:id"
+              element={
+                <ProtectedRoute requiredRoles={[ADMIN, VETERINARIO]}>
+                  <ConsultaPanel />
+                </ProtectedRoute>
+              }
+            />
+            
             {/* Rutas de Inventario */}
             <Route
               path="inventario"

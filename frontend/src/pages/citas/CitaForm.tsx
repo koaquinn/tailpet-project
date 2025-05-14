@@ -182,32 +182,36 @@ const CitaForm: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) {
-      return;
+  if (!validateForm()) {
+    return;
+  }
+
+  setSaving(true);
+  try {
+    const formattedData = {
+      ...formData,
+      // Aseguramos que el estado sea 'PROGRAMADA' para nuevas citas
+      estado: isEdit ? formData.estado : 'PROGRAMADA',
+      // Verificamos que la fecha esté en formato ISO
+      fecha: new Date(formData.fecha).toISOString(),
+    };
+
+    if (isEdit && id) {
+      await citasApi.updateConsulta(parseInt(id), formattedData);
+    } else {
+      await citasApi.createConsulta(formattedData);
     }
 
-    setSaving(true);
-    try {
-      if (isEdit && id) {
-        await citasApi.updateConsulta(parseInt(id), {
-          ...formData,
-          mascota: formData.mascota,
-          veterinario: formData.veterinario
-        });
-      } else {
-        await citasApi.createConsulta({
-          ...formData,
-          mascota: formData.mascota,
-          veterinario: formData.veterinario
-        });
-      }
-      navigate('/citas');
-    } catch (error) {
-      console.error('Error al guardar consulta:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
+    // Mensaje de éxito
+    // Podrías usar un Snackbar de Material UI aquí
+    navigate('/citas');
+  } catch (error) {
+    console.error('Error al guardar consulta:', error);
+    // Notificar al usuario del error
+  } finally {
+    setSaving(false);
+  }
+};
 
   if (loading) {
     return (
