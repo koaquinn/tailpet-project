@@ -89,47 +89,69 @@ const HistorialMascota: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!id) return;
+  if (!id) return;
+  
+  try {
+    setLoading(true);
+    setError(null);
+    
+    // Obtener datos de la mascota
+    const mascotaData = await getMascota(parseInt(id));
+    setMascota(mascotaData);
+    
+    try {
+      // Intentar obtener el historial médico existente
+      const historialResponse = await historialApi.getHistorialByMascota(parseInt(id));
+      console.log('Historial response:', historialResponse);
+      console.log('id de mascota:', id);
       
-      try {
-        setLoading(true);
-        setError(null);
+      // Verificar si hay resultados y tomar el primero
+      if (historialResponse.results && historialResponse.results.length > 0) {
+        const historialData = historialResponse.results[0]; // Tomar el primer elemento del array
+        setHistorial(historialData);
         
-        // Obtener datos de la mascota
-        const mascotaData = await getMascota(parseInt(id));
-        setMascota(mascotaData);
-        
-        try {
-          // Intentar obtener el historial médico existente
-          const historialData = await historialApi.getHistorialByMascota(parseInt(id));
-          setHistorial(historialData);
-          
-          // Si existe historial, obtener consultas y tratamientos
-          if (historialData && historialData.id) {
-            const [consultasData, tratamientosData] = await Promise.all([
-              historialApi.getConsultasHistorial(historialData.id),
-              historialApi.getTratamientosHistorial(historialData.id)
-            ]);
+        // Verificar los nombres exactos de los métodos en historialApi
+        // Asegúrate de que estos métodos existan y sean correctos
+        if (historialData.id) {
+          try {
+            // Verifica si estas son las funciones correctas en tu API
+            const consultasData = await historialApi.getConsultasHistorial(historialData.id);
+            const tratamientosData = await historialApi.getTratamientosHistorial(historialData.id);
             
-            setConsultas(consultasData.results);
-            setTratamientos(tratamientosData.results);
+            setConsultas(consultasData.results || []);
+            setTratamientos(tratamientosData.results || []);
+          } catch (consultasError) {
+            console.error('Error al obtener consultas o tratamientos:', consultasError);
+            // Si falla al obtener consultas, al menos tenemos el historial básico
+            setConsultas([]);
+            setTratamientos([]);
           }
-        } catch (historialError) {
-          // Es posible que la mascota no tenga historial todavía, lo que no es un error fatal
-          console.log('No se encontró historial médico para esta mascota:', historialError);
         }
-        
-        // Obtener vacunaciones independientemente del historial
-        const vacunacionesData = await historialApi.getVacunacionesByMascota(parseInt(id));
-        setVacunaciones(vacunacionesData.results);
-        
-      } catch (err) {
-        console.error('Error al cargar historial médico:', err);
-        setError('Error al cargar los datos de historial médico');
-      } finally {
-        setLoading(false);
+      } else {
+        // No hay historial médico
+        setHistorial(null);
       }
-    };
+    } catch (historialError) {
+      console.error('Error al obtener historial médico:', historialError);
+      setHistorial(null);
+    }
+    
+    // Obtener vacunaciones independientemente del historial
+    try {
+      const vacunacionesData = await historialApi.getVacunacionesByMascota(parseInt(id));
+      setVacunaciones(vacunacionesData.results || []);
+    } catch (vacunasError) {
+      console.error('Error al obtener vacunaciones:', vacunasError);
+      setVacunaciones([]);
+    }
+    
+  } catch (err) {
+    console.error('Error al cargar historial médico:', err);
+    setError('Error al cargar los datos de historial médico');
+  } finally {
+    setLoading(false);
+  }
+};
     
     fetchData();
   }, [id]);
@@ -331,11 +353,6 @@ const HistorialMascota: React.FC = () => {
                             </Typography>
                           )}
                         </CardContent>
-                        <CardActions>
-                          <Button size="small" color="primary" startIcon={<MoreIcon />}>
-                            Ver detalles
-                          </Button>
-                        </CardActions>
                       </Card>
                     </Grid>
                   ))}

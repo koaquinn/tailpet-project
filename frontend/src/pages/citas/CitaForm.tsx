@@ -1,4 +1,4 @@
-// src/pages/citas/CitaForm.tsx (nuevo)
+// src/pages/citas/CitaForm.tsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -93,6 +93,8 @@ const CitaForm: React.FC = () => {
           const consultaData = await citasApi.getConsulta(parseInt(id));
           setFormData({
             ...consultaData,
+            mascota: consultaData.mascota?.id || 0,
+            veterinario: consultaData.veterinario?.id || (user?.rol === 'VETERINARIO' ? user.id : 0)
           });
         }
       } catch (error) {
@@ -103,16 +105,16 @@ const CitaForm: React.FC = () => {
     };
 
     fetchInitialData();
-  }, [isEdit, id, user?.id]);
+  }, [isEdit, id, user?.id, user?.rol]);
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    if (!formData.mascota) {
+    if (!formData.mascota || formData.mascota === 0) {
       newErrors.mascota = 'Seleccione una mascota';
     }
 
-    if (!formData.veterinario) {
+    if (!formData.veterinario || formData.veterinario === 0) {
       newErrors.veterinario = 'Seleccione un veterinario';
     }
 
@@ -153,8 +155,8 @@ const CitaForm: React.FC = () => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: ['mascota', 'veterinario', 'duracion_estimada'].includes(name) 
-        ? parseInt(value) || 0 
+      [name]: ['mascota', 'veterinario'].includes(name) 
+        ? parseInt(value) 
         : value
     }));
 
@@ -187,9 +189,17 @@ const CitaForm: React.FC = () => {
     setSaving(true);
     try {
       if (isEdit && id) {
-        await citasApi.updateConsulta(parseInt(id), formData);
+        await citasApi.updateConsulta(parseInt(id), {
+          ...formData,
+          mascota: formData.mascota,
+          veterinario: formData.veterinario
+        });
       } else {
-        await citasApi.createConsulta(formData);
+        await citasApi.createConsulta({
+          ...formData,
+          mascota: formData.mascota,
+          veterinario: formData.veterinario
+        });
       }
       navigate('/citas');
     } catch (error) {
@@ -237,8 +247,7 @@ const CitaForm: React.FC = () => {
                 >
                   <MenuItem value="0">Seleccione una mascota</MenuItem>
                   {mascotas.map(mascota => (
-                    <MenuItem key={mascota.id} value={mascota.id?.toString() || "0"}>
-// src/pages/citas/CitaForm.tsx (continuación)
+                    <MenuItem key={mascota.id} value={mascota.id?.toString()}>
                       {mascota.nombre} ({mascota.cliente_nombre || 'Cliente'})
                     </MenuItem>
                   ))}
