@@ -22,14 +22,16 @@ import {
   MenuItem,
   TextField,
   Grid,
-  InputAdornment
+  InputAdornment,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Event as EventIcon,
   Search as SearchIcon,
-  FilterList as FilterListIcon
+  FilterList as FilterListIcon,
+  Cancel as CancelIcon,
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -49,6 +51,17 @@ const CitasList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   
   const { user } = useAuth();
+
+  const handleCancelarConsulta = async (id: number) => {
+  try {
+    await citasApi.updateConsulta(id, { estado: 'CANCELADA' });
+    fetchConsultas(); // Refresca la lista luego de cancelar
+  } catch (err) {
+    console.error('Error al cancelar consulta:', err);
+    alert('Hubo un problema al cancelar la consulta');
+  }
+};
+
 
   const fetchConsultas = async () => {
     setLoading(true);
@@ -276,6 +289,7 @@ const CitasList: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell>
+                      <Tooltip title="Editar">
                       <IconButton 
                         color="primary" 
                         size="small"
@@ -284,6 +298,19 @@ const CitasList: React.FC = () => {
                       >
                         <EditIcon />
                       </IconButton>
+                      </Tooltip>
+                      {consulta.estado !== 'CANCELADA' && (
+                        <Tooltip title="Cancelar">
+                        <IconButton
+                          color="error"
+                          size="small"
+                          onClick={() => handleCancelarConsulta(consulta.id!)}
+                        >
+                          <CancelIcon />
+                        </IconButton>
+                        </Tooltip>
+                      )}
+
                     </TableCell>
                   </TableRow>
                 ))

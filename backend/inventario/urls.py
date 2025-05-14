@@ -1,4 +1,3 @@
-
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (ProveedorViewSet, DireccionProveedorViewSet, MedicamentoViewSet,
@@ -13,4 +12,11 @@ router.register(r'movimientos', MovimientoInventarioViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
+    
+    # Agrega esta ruta adicional para el endpoint personalizado
+    path(
+        'medicamentos/<int:pk>/registrar-entrada/',
+        MedicamentoViewSet.as_view({'post': 'registrar_entrada'}),
+        name='medicamento-registrar-entrada'
+    ),
 ]
