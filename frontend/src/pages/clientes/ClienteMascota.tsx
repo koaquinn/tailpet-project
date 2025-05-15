@@ -45,18 +45,18 @@ const ClienteMascotas: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user, hasRole } = useAuth();
-  
+
   // Permisos según roles
   const canEdit = hasRole('ADMIN') || hasRole('RECEPCIONISTA');
   const canViewMedical = hasRole('ADMIN') || hasRole('VETERINARIO');
   const canDelete = hasRole('ADMIN');
-  
+
   // Estados para datos
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [mascotas, setMascotas] = useState<MascotaEnriquecida[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Estados para la UI
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -66,7 +66,7 @@ const ClienteMascotas: React.FC = () => {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [exportOptionOpen, setExportOptionOpen] = useState(false);
   const [exportEmail, setExportEmail] = useState('');
-  
+
   // Estado para notificaciones
   const [notification, setNotification] = useState<{
     open: boolean;
@@ -132,7 +132,7 @@ const ClienteMascotas: React.FC = () => {
 
   // Navegación
   const goToMascotaDetail = (mascotaId: number) => {
-    navigate(`/mascotas/editar/${mascotaId}`);
+    navigate(`/mascotas/editar/${mascotaId}?fromClientView=true&clienteId=${clienteId}`);
   };
 
   const handleChangePage = useCallback((event: unknown, newPage: number) => {
@@ -159,17 +159,17 @@ const ClienteMascotas: React.FC = () => {
       // Optimización: extraer IDs únicos para evitar llamadas duplicadas
       const especiesIds = Array.from(new Set(mascotasData.results.map(m => m.especie).filter(Boolean)));
       const razasIds = Array.from(new Set(mascotasData.results.map(m => m.raza).filter(Boolean)));
-      
+
       // Obtener todas las especies y razas necesarias en una sola vez
       const [especiesList, razasList] = await Promise.all([
         Promise.all(especiesIds.map(id => getEspecie(id))),
         Promise.all(razasIds.map(id => getRaza(id)))
       ]);
-      
+
       // Crear mapas para acceso rápido
       const especiesMap = new Map(especiesList.map(e => [e.id, e.nombre]));
       const razasMap = new Map(razasList.map(r => [r.id, r.nombre]));
-      
+
       // Enriquecer mascotas con nombres de especie y raza usando los mapas
       const mascotasEnriquecidas = mascotasData.results.map(mascota => ({
         ...mascota,
@@ -195,9 +195,9 @@ const ClienteMascotas: React.FC = () => {
   }, [clienteId]);
 
   // Memoizar las mascotas paginadas para evitar recálculos innecesarios
-  const mascotasPaginadas = useMemo(() => 
+  const mascotasPaginadas = useMemo(() =>
     mascotas.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
-  [mascotas, page, rowsPerPage]);
+    [mascotas, page, rowsPerPage]);
 
   // Renderizados condicionales
   if (loading && !refreshing) {
@@ -226,7 +226,7 @@ const ClienteMascotas: React.FC = () => {
             <PetsIcon sx={{ fontSize: 32, mr: 1 }} />
             Mascotas de {cliente?.nombre} {cliente?.apellido}
           </Typography>
-          
+
           <Box>
             <Button
               variant="outlined"
@@ -236,7 +236,7 @@ const ClienteMascotas: React.FC = () => {
             >
               Volver
             </Button>
-            
+
             {canEdit && (
               <Button
                 variant="contained"
@@ -252,13 +252,13 @@ const ClienteMascotas: React.FC = () => {
       </Box>
 
       {error && (
-        <Alert 
-          severity="error" 
+        <Alert
+          severity="error"
           sx={{ mb: 3 }}
           action={
-            <Button 
-              color="inherit" 
-              size="small" 
+            <Button
+              color="inherit"
+              size="small"
               onClick={() => fetchData()}
               startIcon={<RefreshIcon />}
             >
@@ -276,11 +276,11 @@ const ClienteMascotas: React.FC = () => {
           <Typography variant="h6" gutterBottom color="primary">
             Información del Cliente
           </Typography>
-          
+
           {canEdit && (
             <Tooltip title="Editar cliente">
-              <IconButton 
-                size="small" 
+              <IconButton
+                size="small"
                 color="primary"
                 onClick={() => navigate(`/clientes/editar/${clienteId}`)}
               >
@@ -289,9 +289,9 @@ const ClienteMascotas: React.FC = () => {
             </Tooltip>
           )}
         </Box>
-        
+
         <Divider sx={{ mb: 2 }} />
-        
+
         <Grid container spacing={3}>
           <Grid item xs={12} md={4}>
             <Box sx={{ mb: 2 }}>
@@ -306,7 +306,7 @@ const ClienteMascotas: React.FC = () => {
               </Typography>
             </Box>
           </Grid>
-          
+
           <Grid item xs={12} md={4}>
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle1" fontWeight="bold">
@@ -320,7 +320,7 @@ const ClienteMascotas: React.FC = () => {
               </Typography>
             </Box>
           </Grid>
-          
+
           <Grid item xs={12} md={4}>
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle1" fontWeight="bold">
@@ -346,11 +346,11 @@ const ClienteMascotas: React.FC = () => {
 
       {/* Lista de mascotas */}
       <Paper elevation={3}>
-        <Box 
-          sx={{ 
-            p: 2, 
-            display: 'flex', 
-            justifyContent: 'space-between', 
+        <Box
+          sx={{
+            p: 2,
+            display: 'flex',
+            justifyContent: 'space-between',
             alignItems: 'center',
             borderBottom: 1,
             borderColor: 'divider'
@@ -359,11 +359,11 @@ const ClienteMascotas: React.FC = () => {
           <Typography variant="h6" color="primary">
             Mascotas Registradas
           </Typography>
-          
+
           <Box>
             <Tooltip title="Actualizar">
-              <IconButton 
-                onClick={() => fetchData()} 
+              <IconButton
+                onClick={() => fetchData()}
                 disabled={refreshing}
                 color="primary"
                 size="small"
@@ -372,7 +372,7 @@ const ClienteMascotas: React.FC = () => {
                 {refreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
               </IconButton>
             </Tooltip>
-            
+
             {canEdit && (
               <Button
                 variant="outlined"
@@ -385,7 +385,7 @@ const ClienteMascotas: React.FC = () => {
             )}
           </Box>
         </Box>
-        
+
         {isMobile ? (
           // Vista móvil con tarjetas
           <Box p={2}>
@@ -411,9 +411,9 @@ const ClienteMascotas: React.FC = () => {
             ) : (
               <>
                 {mascotasPaginadas.map((mascota) => (
-                  <Card 
-                    key={mascota.id} 
-                    variant="outlined" 
+                  <Card
+                    key={mascota.id}
+                    variant="outlined"
                     sx={{ mb: 2, cursor: 'pointer' }}
                     onClick={() => navigate(`/mascotas/editar/${mascota.id}`)}
                   >
@@ -426,9 +426,9 @@ const ClienteMascotas: React.FC = () => {
                           size="small"
                         />
                       </Box>
-                      
+
                       <Divider sx={{ my: 1 }} />
-                      
+
                       <Grid container spacing={1}>
                         <Grid item xs={6}>
                           <Typography variant="body2">
@@ -451,7 +451,7 @@ const ClienteMascotas: React.FC = () => {
                           </Typography>
                         </Grid>
                       </Grid>
-                      
+
                       <Box display="flex" justifyContent="center" mt={2} gap={1}>
                         {canEdit && mascota.id && (
                           <Tooltip title="Editar mascota">
@@ -460,14 +460,14 @@ const ClienteMascotas: React.FC = () => {
                               color="primary"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(`/mascotas/editar/${mascota.id}`);
+                                navigate(`/mascotas/editar/${mascota.id}?fromClientView=true&clienteId=${clienteId}`);
                               }}
                             >
                               <EditIcon />
                             </IconButton>
                           </Tooltip>
                         )}
-                        
+
                         {canViewMedical && mascota.id && (
                           <Tooltip title="Historial médico">
                             <IconButton
@@ -482,7 +482,7 @@ const ClienteMascotas: React.FC = () => {
                             </IconButton>
                           </Tooltip>
                         )}
-                        
+
                         <Tooltip title="Más opciones">
                           <IconButton
                             size="small"
@@ -498,7 +498,7 @@ const ClienteMascotas: React.FC = () => {
                     </CardContent>
                   </Card>
                 ))}
-                
+
                 <TablePagination
                   rowsPerPageOptions={[5, 10, 25]}
                   component="div"
@@ -551,9 +551,9 @@ const ClienteMascotas: React.FC = () => {
                   </TableRow>
                 ) : (
                   mascotasPaginadas.map((mascota) => (
-                    <TableRow 
-                      key={mascota.id} 
-                      hover 
+                    <TableRow
+                      key={mascota.id}
+                      hover
                       sx={{ cursor: 'pointer' }}
                       onClick={() => goToMascotaDetail(mascota.id!)}
                     >
@@ -585,7 +585,7 @@ const ClienteMascotas: React.FC = () => {
                                 color="primary"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigate(`/mascotas/editar/${mascota.id}`);
+                                  navigate(`/mascotas/editar/${mascota.id}?fromClientView=true&clienteId=${clienteId}`);
                                 }}
                                 aria-label="Editar mascota"
                               >
@@ -593,7 +593,7 @@ const ClienteMascotas: React.FC = () => {
                               </IconButton>
                             </Tooltip>
                           )}
-                          
+
                           {canViewMedical && mascota.id && (
                             <Tooltip title="Historial médico">
                               <IconButton
@@ -609,7 +609,7 @@ const ClienteMascotas: React.FC = () => {
                               </IconButton>
                             </Tooltip>
                           )}
-                          
+
                           {canViewMedical && mascota.id && (
                             <Tooltip title="Vacunas">
                               <IconButton
@@ -625,23 +625,7 @@ const ClienteMascotas: React.FC = () => {
                               </IconButton>
                             </Tooltip>
                           )}
-                          
-                          {mascota.id && (
-                            <Tooltip title="Registro de peso">
-                              <IconButton
-                                size="small"
-                                color="success"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/mascotas/${mascota.id}/peso`);
-                                }}
-                                aria-label="Registro de peso"
-                              >
-                                <WeightIcon />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          
+
                           {mascota.id && (
                             <Tooltip title="Nueva consulta">
                               <IconButton
@@ -657,7 +641,7 @@ const ClienteMascotas: React.FC = () => {
                               </IconButton>
                             </Tooltip>
                           )}
-                          
+
                           <Tooltip title="Más opciones">
                             <IconButton
                               size="small"
@@ -677,7 +661,7 @@ const ClienteMascotas: React.FC = () => {
                 )}
               </TableBody>
             </Table>
-            
+
             {mascotas.length > 0 && (
               <TablePagination
                 rowsPerPageOptions={[5, 10, 25]}
@@ -688,7 +672,7 @@ const ClienteMascotas: React.FC = () => {
                 onPageChange={handleChangePage}
                 onRowsPerPageChange={handleChangeRowsPerPage}
                 labelRowsPerPage="Mascotas por página:"
-                labelDisplayedRows={({ from, to, count }) => 
+                labelDisplayedRows={({ from, to, count }) =>
                   `${from}-${to} de ${count}`
                 }
               />
@@ -712,7 +696,7 @@ const ClienteMascotas: React.FC = () => {
           </ListItemIcon>
           <ListItemText>Ver historial médico</ListItemText>
         </MenuItem>
-        
+
         <MenuItem onClick={() => {
           handleMenuClose();
           if (selectedMascotaId) navigate(`/citas/nueva?mascotaId=${selectedMascotaId}`);
@@ -722,14 +706,14 @@ const ClienteMascotas: React.FC = () => {
           </ListItemIcon>
           <ListItemText>Agendar consulta</ListItemText>
         </MenuItem>
-        
+
         <MenuItem onClick={handleExportClick}>
           <ListItemIcon>
             <EmailIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Enviar historial por email</ListItemText>
         </MenuItem>
-        
+
         <MenuItem onClick={() => {
           handleMenuClose();
           showNotification('Función de impresión no implementada', 'info');
@@ -739,7 +723,7 @@ const ClienteMascotas: React.FC = () => {
           </ListItemIcon>
           <ListItemText>Imprimir ficha</ListItemText>
         </MenuItem>
-        
+
         {canDelete && (
           <MenuItem onClick={handleDeleteClick} sx={{ color: 'error.main' }}>
             <ListItemIcon>
@@ -797,9 +781,9 @@ const ClienteMascotas: React.FC = () => {
           <Button onClick={handleExportCancel} color="primary">
             Cancelar
           </Button>
-          <Button 
-            onClick={handleExportSubmit} 
-            color="primary" 
+          <Button
+            onClick={handleExportSubmit}
+            color="primary"
             variant="contained"
             disabled={!exportEmail || !exportEmail.includes('@')}
           >
@@ -815,9 +799,9 @@ const ClienteMascotas: React.FC = () => {
         onClose={handleCloseNotification}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert 
-          onClose={handleCloseNotification} 
-          severity={notification.severity} 
+        <Alert
+          onClose={handleCloseNotification}
+          severity={notification.severity}
           sx={{ width: '100%' }}
         >
           {notification.message}

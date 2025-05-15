@@ -66,9 +66,10 @@ const MascotaForm = () => {
   // Verificar permisos
   const canEdit = hasRole('ADMIN') || hasRole('RECEPCIONISTA');
   
-  // Obtener clienteId de query params si existe
+  // Obtener clienteId y fromClientView de query params
   const searchParams = new URLSearchParams(location.search);
   const preselectedClienteId = searchParams.get('clienteId');
+  const fromClientView = searchParams.get('fromClientView') === 'true';
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -283,15 +284,26 @@ const MascotaForm = () => {
 
   const handleCloseNotification = () => setNotification((prev) => ({ ...prev, open: false }));
   
+  // Función para navegar de vuelta preservando el contexto
+  const navigateBack = () => {
+    if (fromClientView && preselectedClienteId) {
+      navigate(`/clientes/${preselectedClienteId}/mascotas`);
+    } else if (preselectedClienteId) {
+      navigate(`/clientes/${preselectedClienteId}/mascotas`);
+    } else {
+      navigate('/mascotas');
+    }
+  };
+  
   // Confirmar cancelación si hay cambios
   const handleCancel = () => {
     if (hasChanges) {
       const confirmed = window.confirm('¿Estás seguro de cancelar? Todos los cambios se perderán.');
       if (confirmed) {
-        navigate('/mascotas');
+        navigateBack();
       }
     } else {
-      navigate('/mascotas');
+      navigateBack();
     }
   };
 
@@ -310,13 +322,9 @@ const MascotaForm = () => {
         showNotification('Mascota creada correctamente', 'success');
       }
       
-      // Redireccionar después de guardar
+      // Redireccionar después de guardar, preservando el contexto
       setTimeout(() => {
-        if (preselectedClienteId) {
-          navigate(`/clientes/${preselectedClienteId}/mascotas`);
-        } else {
-          navigate('/mascotas');
-        }
+        navigateBack();
       }, 1500);
     } catch (error: any) {
       const errorMsg = error.response?.data?.detail || 'Error al guardar la mascota. Inténtalo de nuevo.';
@@ -343,9 +351,9 @@ const MascotaForm = () => {
         <Button 
           variant="outlined" 
           startIcon={<ArrowBackIcon />} 
-          onClick={() => navigate(preselectedClienteId ? `/clientes/${preselectedClienteId}/mascotas` : '/mascotas')}
+          onClick={navigateBack}
         >
-          {preselectedClienteId ? 'Volver a mascotas del cliente' : 'Volver a lista de mascotas'}
+          {(fromClientView || preselectedClienteId) ? 'Volver a mascotas del cliente' : 'Volver a lista de mascotas'}
         </Button>
       </Box>
 
