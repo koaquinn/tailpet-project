@@ -1,7 +1,7 @@
 # historial_medico/admin.py
 from django.contrib import admin
 from .models import (HistorialMedico, TipoConsulta, Consulta, 
-                     Tratamiento, TipoDocumento, Documento)
+                     Tratamiento, TipoDocumento, Documento, Vacuna, MascotaVacuna)
 
 @admin.register(HistorialMedico)
 class HistorialMedicoAdmin(admin.ModelAdmin):
@@ -33,3 +33,15 @@ class DocumentoAdmin(admin.ModelAdmin):
     list_display = ('mascota', 'tipo_documento', 'nombre_archivo', 'fecha_subida')
     search_fields = ('mascota__nombre', 'nombre_archivo')
     list_filter = ('tipo_documento', 'fecha_subida')
+
+@admin.register(Vacuna)
+class VacunaAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'especie', 'tipo', 'intervalo_revacunacion')
+    list_filter = ('especie', 'tipo')
+    search_fields = ('nombre',)
+
+@admin.register(MascotaVacuna)
+class MascotaVacunaAdmin(admin.ModelAdmin):
+    list_display = ('mascota', 'vacuna', 'fecha_aplicacion', 'fecha_proxima', 'veterinario')
+    list_filter = ('vacuna', 'fecha_aplicacion', 'veterinario')
+    search_fields = ('mascota__nombre', 'vacuna__nombre', 'veterinario__username')

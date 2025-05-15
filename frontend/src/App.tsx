@@ -22,8 +22,10 @@ import MascotasList from './pages/mascotas/MascotasList';
 import MascotaForm from './pages/mascotas/MascotaForm';
 import HistorialMascota from './pages/historial/HistorialMascota';
 
-// Historial
-import HistorialList from './pages/historial/HistorialList';
+// Historial y Vacunas
+import RegistrarVacuna from './pages/historial/RegistrarVacuna';
+import VacunaDetalle from './pages/historial/VacunaDetalle';
+import EditarVacuna from './pages/historial/EditarVacuna';
 
 // Citas
 import CitasList from './pages/citas/CitasList';
@@ -131,6 +133,32 @@ function App() {
               element={
                 <ProtectedRoute requiredRoles={[ADMIN, RECEPCIONISTA, VETERINARIO]}>
                   <HistorialMascota />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Rutas de Vacunas */}
+            <Route
+              path="mascotas/:mascotaId/vacunas/nuevo"
+              element={
+                <ProtectedRoute requiredRoles={[ADMIN, VETERINARIO]}>
+                  <RegistrarVacuna />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="mascotas/:mascotaId/vacunas/:vacunaId"
+              element={
+                <ProtectedRoute requiredRoles={[ADMIN, RECEPCIONISTA, VETERINARIO]}>
+                  <VacunaDetalle />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="mascotas/:mascotaId/vacunas/editar/:vacunaId"
+              element={
+                <ProtectedRoute requiredRoles={[ADMIN, VETERINARIO]}>
+                  <EditarVacuna />
                 </ProtectedRoute>
               }
             />

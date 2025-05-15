@@ -4,9 +4,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Container, Typography, Paper, Box, Tabs, Tab, Button, Divider, Grid,
   Card, CardContent, CardActions, Chip, List, ListItem, ListItemText,
-  Avatar, CircularProgress, Alert, Table, TableBody, TableCell, 
+  Avatar, CircularProgress, Alert, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, IconButton, Tooltip
 } from '@mui/material';
+import { Edit as EditIcon } from '@mui/icons-material';
 import {
   PetsOutlined as PetsIcon,
   MedicalServices as MedicalIcon,
@@ -62,11 +63,11 @@ const HistorialMascota: React.FC = () => {
   const navigate = useNavigate();
   const { hasRole } = useAuth();
   const canEdit = hasRole('ADMIN') || hasRole('VETERINARIO');
-  
+
   const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [mascota, setMascota] = useState<any>(null);
   const [historial, setHistorial] = useState<any>(null);
   const [consultas, setConsultas] = useState<any[]>([]);
@@ -95,23 +96,23 @@ const HistorialMascota: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return;
-      
+
       try {
         setLoading(true);
         setError(null);
-        
+
         // Obtener datos de la mascota
         const mascotaData = await getMascota(parseInt(id));
         setMascota(mascotaData);
-        
+
         // Intentar obtener el historial médico
         try {
           const historialResponse = await historialApi.getHistorialByMascota(parseInt(id));
-          
+
           if (historialResponse && Array.isArray(historialResponse.results) && historialResponse.results.length > 0) {
             const historialData = historialResponse.results[0];
             setHistorial(historialData);
-            
+
             // Intentar obtener consultas y tratamientos
             if (historialData.id) {
               try {
@@ -120,7 +121,7 @@ const HistorialMascota: React.FC = () => {
                   historialApi.getTratamientosHistorial(historialData.id),
                   historialApi.getVacunacionesByMascota(parseInt(id))
                 ]);
-                
+
                 setConsultas(consultasResponse?.results || []);
                 setTratamientos(tratamientosResponse?.results || []);
                 setVacunaciones(vacunacionesResponse?.results || []);
@@ -141,7 +142,7 @@ const HistorialMascota: React.FC = () => {
         } catch (error) {
           console.error('Error al obtener historial médico:', error);
           setHistorial(null);
-          
+
           // Intentar obtener solo vacunaciones
           try {
             const vacunacionesResponse = await historialApi.getVacunacionesByMascota(parseInt(id));
@@ -158,7 +159,7 @@ const HistorialMascota: React.FC = () => {
         setLoading(false);
       }
     };
-    
+
     fetchData();
   }, [id]);
 
@@ -168,7 +169,7 @@ const HistorialMascota: React.FC = () => {
 
   const createHistorialMedico = async () => {
     if (!mascota || !mascota.id) return;
-    
+
     try {
       setLoading(true);
       const newHistorial = await historialApi.createHistorial({
@@ -176,7 +177,7 @@ const HistorialMascota: React.FC = () => {
         fecha: new Date().toISOString(),
         observaciones: 'Historial médico inicial'
       });
-      
+
       setHistorial(newHistorial);
       // Recargar la página para mostrar el nuevo historial
       window.location.reload();
@@ -201,9 +202,9 @@ const HistorialMascota: React.FC = () => {
       <Container maxWidth="lg">
         <Alert severity="error" sx={{ mt: 2 }}>
           {error}
-          <Button 
-            color="inherit" 
-            size="small" 
+          <Button
+            color="inherit"
+            size="small"
             onClick={() => window.location.reload()}
             sx={{ ml: 2 }}
           >
@@ -219,11 +220,11 @@ const HistorialMascota: React.FC = () => {
       <Container maxWidth="lg">
         <Alert severity="warning" sx={{ mt: 2 }}>
           No se encontró la mascota
-          <Button 
-            component={Link} 
-            to="/mascotas" 
-            color="inherit" 
-            size="small" 
+          <Button
+            component={Link}
+            to="/mascotas"
+            color="inherit"
+            size="small"
             sx={{ ml: 2 }}
           >
             Volver a mascotas
@@ -236,15 +237,15 @@ const HistorialMascota: React.FC = () => {
   return (
     <Container maxWidth="lg">
       <Box sx={{ mb: 3 }}>
-        <Button 
-          startIcon={<ArrowBackIcon />} 
-          component={Link} 
+        <Button
+          startIcon={<ArrowBackIcon />}
+          component={Link}
           to={`/clientes/${mascota.cliente}/mascotas`}
         >
           Volver a mascotas del cliente
         </Button>
       </Box>
-      
+
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Box display="flex" alignItems="center">
@@ -255,7 +256,7 @@ const HistorialMascota: React.FC = () => {
               Historial Médico: {mascota.nombre}
             </Typography>
           </Box>
-          
+
           <Box>
             {canEdit && historial && (
               <Tooltip title="Imprimir historial">
@@ -266,9 +267,9 @@ const HistorialMascota: React.FC = () => {
             )}
           </Box>
         </Box>
-        
+
         <Divider sx={{ mb: 2 }} />
-        
+
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <Typography variant="subtitle1">
@@ -296,10 +297,10 @@ const HistorialMascota: React.FC = () => {
             </Typography>
             <Typography variant="subtitle1">
               <strong>Estado:</strong>{' '}
-              <Chip 
-                label={mascota.activo ? 'Activo' : 'Inactivo'} 
-                color={mascota.activo ? 'success' : 'error'} 
-                size="small" 
+              <Chip
+                label={mascota.activo ? 'Activo' : 'Inactivo'}
+                color={mascota.activo ? 'success' : 'error'}
+                size="small"
               />
             </Typography>
           </Grid>
@@ -330,29 +331,29 @@ const HistorialMascota: React.FC = () => {
               onChange={handleTabChange}
               variant="fullWidth"
             >
-              <Tab 
-                label="Consultas" 
-                icon={<MedicalIcon />} 
-                iconPosition="start" 
-                {...a11yProps(0)} 
+              <Tab
+                label="Consultas"
+                icon={<MedicalIcon />}
+                iconPosition="start"
+                {...a11yProps(0)}
               />
-              <Tab 
-                label="Tratamientos" 
-                icon={<HealingIcon />} 
-                iconPosition="start" 
-                {...a11yProps(1)} 
+              <Tab
+                label="Tratamientos"
+                icon={<HealingIcon />}
+                iconPosition="start"
+                {...a11yProps(1)}
               />
-              <Tab 
-                label="Vacunas" 
-                icon={<AssignmentIcon />} 
-                iconPosition="start" 
-                {...a11yProps(2)} 
+              <Tab
+                label="Vacunas"
+                icon={<AssignmentIcon />}
+                iconPosition="start"
+                {...a11yProps(2)}
               />
-              <Tab 
-                label="Registro de Peso" 
-                icon={<WeightIcon />} 
-                iconPosition="start" 
-                {...a11yProps(3)} 
+              <Tab
+                label="Registro de Peso"
+                icon={<WeightIcon />}
+                iconPosition="start"
+                {...a11yProps(3)}
               />
             </Tabs>
 
@@ -362,7 +363,7 @@ const HistorialMascota: React.FC = () => {
                 <Typography variant="h6">
                   Historial de Consultas
                 </Typography>
-                
+
                 {canEdit && (
                   <Button
                     variant="contained"
@@ -375,7 +376,7 @@ const HistorialMascota: React.FC = () => {
                   </Button>
                 )}
               </Box>
-              
+
               {consultas.length > 0 ? (
                 <TableContainer component={Paper} variant="outlined">
                   <Table>
@@ -439,7 +440,7 @@ const HistorialMascota: React.FC = () => {
                 <Typography variant="h6">
                   Historial de Tratamientos
                 </Typography>
-                
+
                 {canEdit && (
                   <Button
                     variant="contained"
@@ -450,7 +451,7 @@ const HistorialMascota: React.FC = () => {
                   </Button>
                 )}
               </Box>
-              
+
               {tratamientos.length > 0 ? (
                 <Grid container spacing={3}>
                   {tratamientos.map((tratamiento) => (
@@ -463,28 +464,28 @@ const HistorialMascota: React.FC = () => {
                           <Typography color="textSecondary" gutterBottom>
                             Duración: {tratamiento.duracion || 'No especificada'}
                           </Typography>
-                          
+
                           <Divider sx={{ my: 1 }} />
-                          
+
                           <Typography variant="body2" gutterBottom>
                             <strong>Descripción:</strong> {tratamiento.descripcion || 'No especificada'}
                           </Typography>
-                          
+
                           <Typography variant="body2" gutterBottom>
                             <strong>Instrucciones:</strong> {tratamiento.instrucciones || 'No especificadas'}
                           </Typography>
-                          
+
                           {tratamiento.fin_tratamiento && (
                             <Typography variant="body2" gutterBottom>
                               <strong>Finalizado:</strong> {formatDate(tratamiento.fin_tratamiento)}
                             </Typography>
                           )}
                         </CardContent>
-                        
+
                         <CardActions>
-                          <Button 
-                            size="small" 
-                            color="primary" 
+                          <Button
+                            size="small"
+                            color="primary"
                             startIcon={<EventNoteIcon />}
                           >
                             Ver detalles
@@ -519,18 +520,20 @@ const HistorialMascota: React.FC = () => {
                 <Typography variant="h6">
                   Registro de Vacunaciones
                 </Typography>
-                
+
                 {canEdit && (
                   <Button
                     variant="contained"
                     color="primary"
                     startIcon={<AddIcon />}
+                    component={Link}
+                    to={`/mascotas/${mascota.id}/vacunas/nuevo`}
                   >
                     Registrar Vacuna
                   </Button>
                 )}
               </Box>
-              
+
               {vacunaciones.length > 0 ? (
                 <TableContainer component={Paper} variant="outlined">
                   <Table>
@@ -541,26 +544,93 @@ const HistorialMascota: React.FC = () => {
                         <TableCell>Próxima Dosis</TableCell>
                         <TableCell>Veterinario</TableCell>
                         <TableCell>Estado</TableCell>
-                        <TableCell>Observaciones</TableCell>
+                        <TableCell align="center">Acciones</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {vacunaciones.map((vacuna) => (
-                        <TableRow key={vacuna.id} hover>
-                          <TableCell>{vacuna.vacuna_nombre || 'No especificada'}</TableCell>
-                          <TableCell>{formatDate(vacuna.fecha_aplicacion)}</TableCell>
-                          <TableCell>{formatDate(vacuna.fecha_proxima)}</TableCell>
-                          <TableCell>{vacuna.veterinario_nombre || 'No registrado'}</TableCell>
-                          <TableCell>
-                            <Chip 
-                              label={vacuna.fecha_proxima && new Date(vacuna.fecha_proxima) > new Date() ? 'Próxima dosis pendiente' : 'Al día'} 
-                              color={vacuna.fecha_proxima && new Date(vacuna.fecha_proxima) > new Date() ? 'warning' : 'success'} 
-                              size="small" 
-                            />
-                          </TableCell>
-                          <TableCell>{vacuna.observaciones || 'Sin observaciones'}</TableCell>
-                        </TableRow>
-                      ))}
+                      {vacunaciones.map((vacuna) => {
+                        const fechaProxima = vacuna.fecha_proxima ? new Date(vacuna.fecha_proxima) : null;
+                        const hoy = new Date();
+                        const estaAlDia = !fechaProxima || fechaProxima > hoy;
+                        const proximaFechaCercana = fechaProxima &&
+                          ((fechaProxima.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)) <= 30;
+
+                        return (
+                          <TableRow key={vacuna.id} hover>
+                            <TableCell>{vacuna.vacuna_nombre || 'No especificada'}</TableCell>
+                            <TableCell>{formatDate(vacuna.fecha_aplicacion)}</TableCell>
+                            <TableCell>{formatDate(vacuna.fecha_proxima)}</TableCell>
+                            <TableCell>{vacuna.veterinario_nombre || 'No registrado'}</TableCell>
+                            <TableCell>
+                              <Chip
+                                label={
+                                  !fechaProxima
+                                    ? 'Sin revacunación'
+                                    : (estaAlDia
+                                      ? (proximaFechaCercana
+                                        ? 'Próxima dosis cercana'
+                                        : 'Al día')
+                                      : 'Revacunación pendiente')
+                                }
+                                color={
+                                  !fechaProxima
+                                    ? 'default'
+                                    : (estaAlDia
+                                      ? (proximaFechaCercana ? 'warning' : 'success')
+                                      : 'error')
+                                }
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                                <Tooltip title="Ver detalles">
+                                  <IconButton
+                                    size="small"
+                                    color="primary"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/mascotas/${mascota.id}/vacunas/${vacuna.id}`);
+                                    }}
+                                  >
+                                    <EventNoteIcon />
+                                  </IconButton>
+                                </Tooltip>
+
+                                {canEdit && (
+                                  <Tooltip title="Editar vacuna">
+                                    <IconButton
+                                      size="small"
+                                      color="secondary"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/mascotas/${mascota.id}/vacunas/editar/${vacuna.id}`);
+                                      }}
+                                    >
+                                      <EditIcon />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+
+                                {fechaProxima && new Date() > fechaProxima && canEdit && (
+                                  <Tooltip title="Registrar revacunación">
+                                    <IconButton
+                                      size="small"
+                                      color="success"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/mascotas/${mascota.id}/vacunas/nuevo?revacunacion=${vacuna.vacuna}`);
+                                      }}
+                                    >
+                                      <VaccineIcon />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -574,6 +644,8 @@ const HistorialMascota: React.FC = () => {
                       variant="contained"
                       color="primary"
                       startIcon={<AddIcon />}
+                      component={Link}
+                      to={`/mascotas/${mascota.id}/vacunas/nuevo`}
                       sx={{ mt: 1 }}
                     >
                       Registrar Vacuna
@@ -585,22 +657,7 @@ const HistorialMascota: React.FC = () => {
 
             {/* Pestaña de Registro de Peso */}
             <TabPanel value={tabValue} index={3}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Typography variant="h6">
-                  Registro de Peso
-                </Typography>
-                
-                {canEdit && (
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<AddIcon />}
-                  >
-                    Registrar Peso
-                  </Button>
-                )}
-              </Box>
-              
+
               {consultas.some(c => c.peso) ? (
                 <Box>
                   <TableContainer component={Paper} variant="outlined">
@@ -628,7 +685,7 @@ const HistorialMascota: React.FC = () => {
                       </TableBody>
                     </Table>
                   </TableContainer>
-                  
+
                   {/* Aquí se podría agregar una gráfica de evolución del peso */}
                 </Box>
               ) : (

@@ -1,6 +1,6 @@
 // src/pages/citas/CitaForm.tsx
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -15,12 +15,14 @@ import {
   MenuItem,
   CircularProgress,
   Alert,
-  FormHelperText
+  FormHelperText,
+  Snackbar
 } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material/Select';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DateTimePicker } from '@mui/x-date-pickers';
 import { es } from 'date-fns/locale';
+import { format, setHours, setMinutes, isBefore, isAfter } from 'date-fns';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import citasApi, { Consulta } from '../../api/citasApi';
@@ -50,14 +52,23 @@ const ESTADOS_CONSULTA = [
   { value: 'CANCELADA', label: 'Cancelada' },
 ];
 
+// Horario laboral: 8 AM a 9 PM
+const HORA_INICIO = 8; // 8:00 AM
+const HORA_FIN = 21; // 9:00 PM (21:00 en formato 24h)
+
 const CitaForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const isEdit = Boolean(id);
 
+  // Obtener mascotaId desde la URL si está disponible
+  const searchParams = new URLSearchParams(location.search);
+  const mascotaIdParam = searchParams.get('mascotaId');
+
   const [formData, setFormData] = useState<Consulta>({
-    mascota: 0,
+    mascota: mascotaIdParam ? parseInt(mascotaIdParam) : 0,
     veterinario: user?.rol === 'VETERINARIO' ? user.id : 0,
     fecha: new Date().toISOString(),
     motivo: '',
@@ -73,6 +84,28 @@ const CitaForm: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [mascotas, setMascotas] = useState<Mascota[]>([]);
   const [veterinarios, setVeterinarios] = useState<User[]>([]);
+  const [notification, setNotification] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error';
+  }>({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
+
+  // Función para mostrar notificaciones
+  const showNotification = (message: string, severity: 'success' | 'error') => {
+    setNotification({
+      open: true,
+      message,
+      severity
+    });
+  };
+
+  const handleCloseNotification = () => {
+    setNotification(prev => ({ ...prev, open: false }));
+  };
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -99,13 +132,20 @@ const CitaForm: React.FC = () => {
         }
       } catch (error) {
         console.error('Error cargando datos iniciales:', error);
+        showNotification('Error al cargar datos iniciales', 'error');
       } finally {
         setLoading(false);
       }
     };
 
     fetchInitialData();
-  }, [isEdit, id, user?.id, user?.rol]);
+  }, [isEdit, id, user?.id, user?.rol, mascotaIdParam]);
+
+  // Función para validar si una fecha está dentro del horario laboral
+  const isWithinBusinessHours = (date: Date): boolean => {
+    const hours = date.getHours();
+    return hours >= HORA_INICIO && hours < HORA_FIN;
+  };
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -120,6 +160,11 @@ const CitaForm: React.FC = () => {
 
     if (!formData.fecha) {
       newErrors.fecha = 'Seleccione una fecha y hora';
+    } else {
+      const fechaConsulta = new Date(formData.fecha);
+      if (!isWithinBusinessHours(fechaConsulta)) {
+        newErrors.fecha = `La hora debe estar entre ${HORA_INICIO}:00 AM y ${HORA_FIN - 12}:00 PM`;
+      }
     }
 
     if (!formData.motivo.trim()) {
@@ -168,50 +213,97 @@ const CitaForm: React.FC = () => {
 
   const handleDateChange = (date: Date | null) => {
     if (date) {
+      // Si la hora está fuera del horario laboral, ajustarla
+      let adjustedDate = new Date(date);
+      const hours = adjustedDate.getHours();
+      
+      if (hours < HORA_INICIO) {
+        // Si es antes de las 8 AM, ajustar a 8 AM
+        adjustedDate = setHours(adjustedDate, HORA_INICIO);
+        adjustedDate = setMinutes(adjustedDate, 0);
+      } else if (hours >= HORA_FIN) {
+        // Si es después de las 9 PM, ajustar a 8:30 AM del día siguiente
+        adjustedDate = setHours(adjustedDate, HORA_INICIO);
+        adjustedDate = setMinutes(adjustedDate, 30);
+        adjustedDate.setDate(adjustedDate.getDate() + 1);
+      }
+      
       setFormData(prev => ({
         ...prev,
-        fecha: date.toISOString()
+        fecha: adjustedDate.toISOString()
       }));
 
       if (errors.fecha) {
         setErrors(prev => ({ ...prev, fecha: undefined }));
       }
+
+      // Mostrar advertencia si la fecha fue ajustada
+      if (
+        hours < HORA_INICIO || 
+        hours >= HORA_FIN
+      ) {
+        showNotification(
+          `La hora ha sido ajustada para estar dentro del horario laboral (${HORA_INICIO}:00 AM - ${HORA_FIN - 12}:00 PM)`, 
+          'info'
+        );
+      }
     }
+  };
+
+  // Para validar si una fecha está dentro del horario permitido
+  const shouldDisableTime = (value: Date, view: string): boolean => {
+    if (view === 'hours') {
+      const hours = value.getHours();
+      return hours < HORA_INICIO || hours >= HORA_FIN;
+    }
+    return false;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-  if (!validateForm()) {
-    return;
-  }
-
-  setSaving(true);
-  try {
-    const formattedData = {
-      ...formData,
-      // Aseguramos que el estado sea 'PROGRAMADA' para nuevas citas
-      estado: isEdit ? formData.estado : 'PROGRAMADA',
-      // Verificamos que la fecha esté en formato ISO
-      fecha: new Date(formData.fecha).toISOString(),
-    };
-
-    if (isEdit && id) {
-      await citasApi.updateConsulta(parseInt(id), formattedData);
-    } else {
-      await citasApi.createConsulta(formattedData);
+    if (!validateForm()) {
+      return;
     }
 
-    // Mensaje de éxito
-    // Podrías usar un Snackbar de Material UI aquí
-    navigate('/citas');
-  } catch (error) {
-    console.error('Error al guardar consulta:', error);
-    // Notificar al usuario del error
-  } finally {
-    setSaving(false);
-  }
-};
+    setSaving(true);
+    try {
+      const fechaConsulta = new Date(formData.fecha);
+      
+      // Verificar una vez más que la fecha está dentro del horario laboral
+      if (!isWithinBusinessHours(fechaConsulta)) {
+        showNotification(`Las citas solo pueden agendarse entre ${HORA_INICIO}:00 AM y ${HORA_FIN - 12}:00 PM`, 'error');
+        setSaving(false);
+        return;
+      }
+      
+      const formattedData = {
+        ...formData,
+        // Aseguramos que el estado sea 'PROGRAMADA' para nuevas citas
+        estado: isEdit ? formData.estado : 'PROGRAMADA',
+        // Verificamos que la fecha esté en formato ISO
+        fecha: fechaConsulta.toISOString(),
+      };
+
+      if (isEdit && id) {
+        await citasApi.updateConsulta(parseInt(id), formattedData);
+        showNotification('Consulta actualizada correctamente', 'success');
+      } else {
+        await citasApi.createConsulta(formattedData);
+        showNotification('Consulta creada correctamente', 'success');
+      }
+
+      // Retrasamos la navegación para que el usuario vea el mensaje
+      setTimeout(() => {
+        navigate('/citas');
+      }, 1500);
+    } catch (error) {
+      console.error('Error al guardar consulta:', error);
+      showNotification('Error al guardar la consulta', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -236,6 +328,10 @@ const CitaForm: React.FC = () => {
         <Typography variant="h5" component="h1" gutterBottom>
           {isEdit ? 'Editar Consulta' : 'Nueva Consulta'}
         </Typography>
+        
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Las consultas solo pueden programarse entre las {HORA_INICIO}:00 AM y las {HORA_FIN - 12}:00 PM.
+        </Alert>
         
         <form onSubmit={handleSubmit}>
           <Grid container spacing={3}>
@@ -287,11 +383,14 @@ const CitaForm: React.FC = () => {
                   label="Fecha y hora *"
                   value={new Date(formData.fecha)}
                   onChange={handleDateChange}
+                  // Restricción para horas
+                  shouldDisableTime={shouldDisableTime}
+                  ampm={true}
                   slotProps={{
                     textField: {
                       fullWidth: true,
                       error: !!errors.fecha,
-                      helperText: errors.fecha,
+                      helperText: errors.fecha || `Horario permitido: ${HORA_INICIO}:00 AM - ${HORA_FIN - 12}:00 PM`,
                       disabled: saving
                     }
                   }}
@@ -420,6 +519,17 @@ const CitaForm: React.FC = () => {
           </Grid>
         </form>
       </Paper>
+
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseNotification} severity={notification.severity} sx={{ width: '100%' }}>
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

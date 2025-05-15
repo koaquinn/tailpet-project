@@ -1,4 +1,4 @@
-// src/api/inventarioApi.ts (nuevo)
+// src/api/inventarioApi.ts
 import axiosInstance from './axiosConfig';
 
 export interface Proveedor {
@@ -23,6 +23,7 @@ export interface Medicamento {
   stock_minimo: number;
   activo: boolean;
   requiere_receta: boolean;
+  es_vacuna?: boolean;
 }
 
 export interface LoteMedicamento {
@@ -58,6 +59,32 @@ export interface PaginatedResponse<T> {
   next: string | null;
   previous: string | null;
   results: T[];
+}
+
+// Interfaces específicas para vacunas
+export interface Vacuna {
+  id?: number;
+  nombre: string;
+  descripcion?: string;
+  tipo: 'OBLIGATORIA' | 'OPCIONAL';
+  intervalo_revacunacion: number;
+  especie: number;
+  especie_nombre?: string;
+}
+
+export interface MascotaVacuna {
+  id?: number;
+  mascota: number;
+  mascota_nombre?: string;
+  vacuna: number;
+  vacuna_nombre?: string;
+  fecha_aplicacion: string;
+  fecha_proxima?: string;
+  veterinario: number;
+  veterinario_nombre?: string;
+  lote: number;
+  lote_codigo?: string;
+  observaciones?: string;
 }
 
 const inventarioApi = {
@@ -161,6 +188,53 @@ const inventarioApi = {
   registrarEntrada: async (id: number, entradaData: any): Promise<any> => {
     const { data } = await axiosInstance.post<any>(`/inventario/medicamentos/${id}/registrar-entrada/`, entradaData);
     return data;
+  },
+
+  // Métodos específicos para vacunas
+  
+  // Obtener lotes disponibles para vacunas
+  getLotesMedicamentoVacunas: async (): Promise<PaginatedResponse<LoteMedicamento>> => {
+    try {
+      // Obtener lotes con stock disponible
+      const params = { cantidad__gt: 0 };
+      const { data } = await axiosInstance.get<PaginatedResponse<LoteMedicamento>>('/inventario/lotes/', { params });
+      console.log("Lotes disponibles obtenidos:", data);
+      return data;
+    } catch (error) {
+      console.error("Error al obtener lotes de medicamentos:", error);
+      throw error;
+    }
+  },
+  
+  // Registrar movimiento de inventario para la aplicación de una vacuna
+  registrarMovimientoVacuna: async (loteId: number, cantidad: number, mascotaId: number, usuarioId: number, observaciones?: string): Promise<MovimientoInventario> => {
+    try {
+      // Primero obtenemos información del lote para saber qué medicamento asociar
+      const { data: lote } = await axiosInstance.get<LoteMedicamento>(`/inventario/lotes/${loteId}/`);
+      
+      // Construimos el objeto de movimiento de inventario
+      const movimiento: Partial<MovimientoInventario> = {
+        medicamento: lote.medicamento,
+        lote: loteId,
+        tipo: 'SALIDA',
+        cantidad: cantidad || 1, // Por defecto 1 dosis
+        fecha: new Date().toISOString().split('T')[0], // Fecha actual en formato YYYY-MM-DD
+        usuario: usuarioId,
+        motivo: `Vacunación aplicada a mascota ID: ${mascotaId}`,
+        afecta_stock: true
+      };
+      
+      if (observaciones) {
+        movimiento.motivo += ` - ${observaciones}`;
+      }
+      
+      // Crear el movimiento de inventario
+      const { data } = await axiosInstance.post<MovimientoInventario>('/inventario/movimientos/', movimiento);
+      return data;
+    } catch (error) {
+      console.error("Error registrando movimiento de vacuna:", error);
+      throw error;
+    }
   }
 };
 

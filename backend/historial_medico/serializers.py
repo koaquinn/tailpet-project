@@ -71,6 +71,8 @@ class MascotaVacunaSerializer(serializers.ModelSerializer):
     mascota_nombre = serializers.ReadOnlyField(source='mascota.nombre')
     vacuna_nombre = serializers.ReadOnlyField(source='vacuna.nombre')
     veterinario_nombre = serializers.ReadOnlyField(source='veterinario.get_full_name')
+    lote_codigo = serializers.ReadOnlyField(source='lote.numero_lote')
+    medicamento_nombre = serializers.ReadOnlyField(source='lote.medicamento.nombre')
     
     class Meta:
         model = MascotaVacuna
