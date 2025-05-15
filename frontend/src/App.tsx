@@ -3,6 +3,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import theme from './theme';
 
 // Layouts
 import Layout from './components/layout/Layout';
@@ -50,6 +52,8 @@ const RECEPCIONISTA = 'RECEPCIONISTA';
 
 function App() {
   return (
+      <ThemeProvider theme={theme}>
+      <CssBaseline /> {/* Esto normaliza los estilos base */}
     <AuthProvider>
       <Router>
         <Routes>
@@ -250,6 +254,7 @@ function App() {
         </Routes>
       </Router>
     </AuthProvider>
+    </ThemeProvider>
   );
 }
 

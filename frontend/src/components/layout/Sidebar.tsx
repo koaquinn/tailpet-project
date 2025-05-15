@@ -10,7 +10,9 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  styled
+  styled,
+  useTheme,
+  alpha
 } from '@mui/material';
 import { Link, useLocation } from 'react-router-dom';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -23,7 +25,7 @@ import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import LogoutIcon from '@mui/icons-material/Logout'; //
+import LogoutIcon from '@mui/icons-material/Logout';
 import { useAuth } from '../../context/AuthContext';
 
 const drawerWidth = 240;
@@ -60,6 +62,7 @@ const menuItems: MenuEntry[] = [
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ open, handleDrawerClose }) => {
+  const theme = useTheme();
   const { user, logout } = useAuth();
   const location = useLocation();
 
@@ -69,25 +72,40 @@ const Sidebar: React.FC<SidebarProps> = ({ open, handleDrawerClose }) => {
     (!!user && item.roles.includes(user.rol))
   );
 
-
   return (
     <Drawer
       sx={{
         width: drawerWidth,
         flexShrink: 0,
-        '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' },
+        '& .MuiDrawer-paper': { 
+          width: drawerWidth, 
+          boxSizing: 'border-box',
+          boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.05)', 
+          borderRight: `1px solid ${theme.palette.divider}` 
+        },
       }}
       variant="persistent"
       anchor="left"
       open={open}
     >
-      <DrawerHeader>
-        <IconButton onClick={handleDrawerClose}>
+      <DrawerHeader sx={{ 
+        bgcolor: alpha(theme.palette.primary.main, 0.03),
+        borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`
+      }}>
+        <IconButton 
+          onClick={handleDrawerClose}
+          sx={{
+            borderRadius: 1.5,
+            '&:hover': {
+              bgcolor: alpha(theme.palette.primary.main, 0.08),
+            }
+          }}
+        >
           <ChevronLeftIcon />
         </IconButton>
       </DrawerHeader>
-      <Divider />
-      <List>
+
+      <List sx={{ px: 1, py: 1.5 }}>
         {filteredMenuItems.map(item => {
           const isActive =
             location.pathname === item.path ||
@@ -99,34 +117,46 @@ const Sidebar: React.FC<SidebarProps> = ({ open, handleDrawerClose }) => {
               disablePadding
               component={Link}
               to={item.path}
-              sx={{ textDecoration: 'none', color: 'inherit' }}
+              sx={{ 
+                textDecoration: 'none', 
+                color: 'inherit',
+                mb: 0.5,
+                borderRadius: 1.5,
+                overflow: 'hidden'
+              }}
             >
               <ListItemButton
                 selected={isActive}
                 sx={{
+                  borderRadius: 1.5,
+                  transition: 'all 0.2s ease',
+                  py: 1,
                   '&.Mui-selected': {
-                    backgroundColor: 'rgba(0, 0, 0, 0.08)',
-                    '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.12)' },
+                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                    '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.15) },
+                  },
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.05),
                   },
                 }}
               >
-                <ListItemIcon sx={{ color: isActive ? 'primary.main' : 'inherit' }}>
+                <ListItemIcon 
+                  sx={{ 
+                    color: isActive ? 'primary.main' : 'text.secondary',
+                    minWidth: 40
+                  }}
+                >
                   {item.icon}
                 </ListItemIcon>
-                <ListItemButton>
-                  <ListItemText
-                    primary={item.text}
-                    slotProps={{
-                      primary: {
-                        sx: {
-                          fontWeight: isActive ? 'bold' : 'normal',
-                          color: isActive ? 'primary.main' : 'inherit',
-                        },
-                      },
-                    }}
-                  />
-                </ListItemButton>
-
+                
+                <ListItemText
+                  primary={item.text}
+                  primaryTypographyProps={{
+                    fontWeight: isActive ? 600 : 400,
+                    fontSize: '0.95rem',
+                    color: isActive ? 'primary.main' : 'text.primary',
+                  }}
+                />
               </ListItemButton>
             </ListItem>
           );
@@ -135,31 +165,34 @@ const Sidebar: React.FC<SidebarProps> = ({ open, handleDrawerClose }) => {
 
       <Box flexGrow={1} />
       <Divider />
-      <List>
+      <List sx={{ p: 1 }}>
         <ListItem disablePadding>
-          <ListItemButton onClick={logout}
-
+          <ListItemButton 
+            onClick={logout}
             sx={{
+              borderRadius: 1.5,
+              transition: 'all 0.2s ease',
               '&:hover': {
-                backgroundColor: '#6366F1',
-                '& .MuiListItemText-primary': {
-                  color: 'white',
-                },
+                backgroundColor: alpha(theme.palette.error.main, 0.1),
                 '& .MuiListItemIcon-root': {
-                  color: 'white',
+                  color: theme.palette.error.main,
+                },
+                '& .MuiListItemText-primary': {
+                  color: theme.palette.error.main,
                 },
               },
             }}
           >
-            <ListItemIcon sx={{ color: 'black' }}>
+            <ListItemIcon sx={{ color: 'text.secondary', minWidth: 40 }}>
               <LogoutIcon />
             </ListItemIcon>
             <ListItemText
               primary="Cerrar Sesión"
               slotProps={{
                 primary: {
-                  sx: { fontWeight: 'normal' },
-                },
+                  fontWeight: 500,
+                  fontSize: '0.95rem',
+                }
               }}
             />
           </ListItemButton>

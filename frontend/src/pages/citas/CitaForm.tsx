@@ -16,7 +16,11 @@ import {
   CircularProgress,
   Alert,
   FormHelperText,
-  Snackbar
+  Snackbar,
+  Divider,
+  useTheme,
+  alpha,
+  Chip
 } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material/Select';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -25,6 +29,9 @@ import { es } from 'date-fns/locale';
 import { format, setHours, setMinutes, isBefore, isAfter } from 'date-fns';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
+import EventIcon from '@mui/icons-material/Event';
+import PetsIcon from '@mui/icons-material/Pets';
+import PersonIcon from '@mui/icons-material/Person';
 import citasApi, { Consulta } from '../../api/citasApi';
 import { getMascotas, Mascota } from '../../api/mascotaApi';
 import authApi, { User } from '../../api/authApi';
@@ -41,15 +48,15 @@ interface FormErrors {
 }
 
 const TIPOS_CONSULTA = [
-  { value: 'RUTINA', label: 'Rutina' },
-  { value: 'EMERGENCIA', label: 'Emergencia' },
-  { value: 'SEGUIMIENTO', label: 'Seguimiento' },
+  { value: 'RUTINA', label: 'Rutina', color: 'info' },
+  { value: 'EMERGENCIA', label: 'Emergencia', color: 'error' },
+  { value: 'SEGUIMIENTO', label: 'Seguimiento', color: 'warning' },
 ];
 
 const ESTADOS_CONSULTA = [
-  { value: 'PROGRAMADA', label: 'Programada' },
-  { value: 'COMPLETADA', label: 'Completada' },
-  { value: 'CANCELADA', label: 'Cancelada' },
+  { value: 'PROGRAMADA', label: 'Programada', color: 'primary' },
+  { value: 'COMPLETADA', label: 'Completada', color: 'success' },
+  { value: 'CANCELADA', label: 'Cancelada', color: 'error' },
 ];
 
 // Horario laboral: 8 AM a 9 PM
@@ -57,6 +64,7 @@ const HORA_INICIO = 8; // 8:00 AM
 const HORA_FIN = 21; // 9:00 PM (21:00 en formato 24h)
 
 const CitaForm: React.FC = () => {
+  const theme = useTheme();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -87,7 +95,7 @@ const CitaForm: React.FC = () => {
   const [notification, setNotification] = useState<{
     open: boolean;
     message: string;
-    severity: 'success' | 'error';
+    severity: 'success' | 'error' | 'info';
   }>({
     open: false,
     message: '',
@@ -95,7 +103,7 @@ const CitaForm: React.FC = () => {
   });
 
   // Función para mostrar notificaciones
-  const showNotification = (message: string, severity: 'success' | 'error') => {
+  const showNotification = (message: string, severity: 'success' | 'error' | 'info') => {
     setNotification({
       open: true,
       message,
@@ -308,35 +316,123 @@ const CitaForm: React.FC = () => {
   if (loading) {
     return (
       <Container sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 8 }}>
+          <CircularProgress size={60} sx={{ mb: 3 }} />
+          <Typography variant="h6" color="text.secondary">
+            Cargando datos de la consulta...
+          </Typography>
+        </Box>
       </Container>
     );
   }
+
+  // Encontrar objetos de tipo y estado para el formulario
+  const tipoConsulta = TIPOS_CONSULTA.find(t => t.value === formData.tipo);
+  const estadoConsulta = ESTADOS_CONSULTA.find(e => e.value === formData.estado);
 
   return (
     <Container maxWidth="md">
       <Box sx={{ mb: 3 }}>
         <Button 
+          variant="text"
           startIcon={<ArrowBackIcon />} 
           onClick={() => navigate('/citas')}
+          sx={{
+            color: theme.palette.text.primary,
+            '&:hover': {
+              bgcolor: alpha(theme.palette.primary.main, 0.05),
+            }
+          }}
         >
           Volver a consultas
         </Button>
       </Box>
       
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h5" component="h1" gutterBottom>
-          {isEdit ? 'Editar Consulta' : 'Nueva Consulta'}
-        </Typography>
+      <Paper 
+        elevation={3}
+        sx={{ 
+          p: { xs: 2, sm: 3 },
+          borderRadius: 2,
+          boxShadow: `0 4px 20px 0 ${alpha(theme.palette.grey[500], 0.1)}, 
+                     0 2px 8px 0 ${alpha(theme.palette.grey[500], 0.1)}`
+        }}
+      >
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            flexWrap: 'wrap',
+            gap: 2,
+            mb: 2 
+          }}
+        >
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              flexGrow: 1
+            }}
+          >
+            <EventIcon 
+              sx={{ 
+                mr: 1, 
+                color: theme.palette.primary.main,
+                fontSize: 28
+              }} 
+            />
+            <Typography 
+              variant="h5" 
+              component="h1" 
+              sx={{ fontWeight: 600 }}
+            >
+              {isEdit ? 'Editar Consulta' : 'Nueva Consulta'}
+            </Typography>
+          </Box>
+          
+          {isEdit && estadoConsulta && (
+            <Chip 
+              label={estadoConsulta.label} 
+              color={estadoConsulta.color as any}
+              sx={{ fontWeight: 500 }}
+            />
+          )}
+        </Box>
         
-        <Alert severity="info" sx={{ mb: 3 }}>
+        <Divider sx={{ mb: 3 }} />
+        
+        <Alert 
+          severity="info" 
+          variant="outlined"
+          icon={<EventIcon />}
+          sx={{ 
+            mb: 3,
+            bgcolor: alpha(theme.palette.info.main, 0.05),
+            '& .MuiAlert-icon': {
+              color: theme.palette.info.main
+            }
+          }}
+        >
           Las consultas solo pueden programarse entre las {HORA_INICIO}:00 AM y las {HORA_FIN - 12}:00 PM.
         </Alert>
         
         <form onSubmit={handleSubmit}>
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.mascota}>
+              <FormControl 
+                fullWidth 
+                error={!!errors.mascota}
+                variant="outlined"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 1.5,
+                    bgcolor: theme.palette.background.paper,
+                    transition: 'all 0.2s ease-in-out',
+                    '&.Mui-focused': {
+                      boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.25)}`
+                    }
+                  },
+                }}
+              >
                 <InputLabel>Mascota *</InputLabel>
                 <Select
                   name="mascota"
@@ -344,6 +440,9 @@ const CitaForm: React.FC = () => {
                   label="Mascota *"
                   onChange={handleSelectChange}
                   disabled={saving}
+                  startAdornment={
+                    <PetsIcon sx={{ ml: 1, mr: 1, color: theme.palette.text.secondary }} />
+                  }
                 >
                   <MenuItem value="0">Seleccione una mascota</MenuItem>
                   {mascotas.map(mascota => (
@@ -352,12 +451,30 @@ const CitaForm: React.FC = () => {
                     </MenuItem>
                   ))}
                 </Select>
-                {errors.mascota && <FormHelperText>{errors.mascota}</FormHelperText>}
+                {errors.mascota && (
+                  <FormHelperText sx={{ color: theme.palette.error.main }}>
+                    {errors.mascota}
+                  </FormHelperText>
+                )}
               </FormControl>
             </Grid>
             
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.veterinario}>
+              <FormControl 
+                fullWidth 
+                error={!!errors.veterinario}
+                variant="outlined"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 1.5,
+                    bgcolor: theme.palette.background.paper,
+                    transition: 'all 0.2s ease-in-out',
+                    '&.Mui-focused': {
+                      boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.25)}`
+                    }
+                  },
+                }}
+              >
                 <InputLabel>Veterinario *</InputLabel>
                 <Select
                   name="veterinario"
@@ -365,6 +482,9 @@ const CitaForm: React.FC = () => {
                   label="Veterinario *"
                   onChange={handleSelectChange}
                   disabled={saving || (user?.rol === 'VETERINARIO')}
+                  startAdornment={
+                    <PersonIcon sx={{ ml: 1, mr: 1, color: theme.palette.text.secondary }} />
+                  }
                 >
                   <MenuItem value="0">Seleccione un veterinario</MenuItem>
                   {veterinarios.map(vet => (
@@ -373,7 +493,11 @@ const CitaForm: React.FC = () => {
                     </MenuItem>
                   ))}
                 </Select>
-                {errors.veterinario && <FormHelperText>{errors.veterinario}</FormHelperText>}
+                {errors.veterinario && (
+                  <FormHelperText sx={{ color: theme.palette.error.main }}>
+                    {errors.veterinario}
+                  </FormHelperText>
+                )}
               </FormControl>
             </Grid>
             
@@ -391,7 +515,17 @@ const CitaForm: React.FC = () => {
                       fullWidth: true,
                       error: !!errors.fecha,
                       helperText: errors.fecha || `Horario permitido: ${HORA_INICIO}:00 AM - ${HORA_FIN - 12}:00 PM`,
-                      disabled: saving
+                      disabled: saving,
+                      sx: {
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: 1.5,
+                          bgcolor: theme.palette.background.paper,
+                          transition: 'all 0.2s ease-in-out',
+                          '&.Mui-focused': {
+                            boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.25)}`
+                          }
+                        },
+                      }
                     }
                   }}
                 />
@@ -399,7 +533,21 @@ const CitaForm: React.FC = () => {
             </Grid>
             
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.tipo}>
+              <FormControl 
+                fullWidth 
+                error={!!errors.tipo}
+                variant="outlined"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 1.5,
+                    bgcolor: theme.palette.background.paper,
+                    transition: 'all 0.2s ease-in-out',
+                    '&.Mui-focused': {
+                      boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.25)}`
+                    }
+                  },
+                }}
+              >
                 <InputLabel>Tipo de consulta *</InputLabel>
                 <Select
                   name="tipo"
@@ -407,14 +555,35 @@ const CitaForm: React.FC = () => {
                   label="Tipo de consulta *"
                   onChange={handleSelectChange}
                   disabled={saving}
+                  // Renderizamos un Chip en el Select
+                  renderValue={(selected) => {
+                    const tipo = TIPOS_CONSULTA.find(t => t.value === selected);
+                    return tipo ? (
+                      <Chip 
+                        label={tipo.label} 
+                        color={tipo.color as any}
+                        size="small"
+                        sx={{ fontWeight: 500 }}
+                      />
+                    ) : selected;
+                  }}
                 >
                   {TIPOS_CONSULTA.map(tipo => (
                     <MenuItem key={tipo.value} value={tipo.value}>
-                      {tipo.label}
+                      <Chip 
+                        label={tipo.label} 
+                        color={tipo.color as any}
+                        size="small"
+                        sx={{ fontWeight: 500 }}
+                      />
                     </MenuItem>
                   ))}
                 </Select>
-                {errors.tipo && <FormHelperText>{errors.tipo}</FormHelperText>}
+                {errors.tipo && (
+                  <FormHelperText sx={{ color: theme.palette.error.main }}>
+                    {errors.tipo}
+                  </FormHelperText>
+                )}
               </FormControl>
             </Grid>
             
@@ -430,11 +599,34 @@ const CitaForm: React.FC = () => {
                 helperText={errors.duracion_estimada}
                 disabled={saving}
                 InputProps={{ inputProps: { min: 1 } }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 1.5,
+                    bgcolor: theme.palette.background.paper,
+                    transition: 'all 0.2s ease-in-out',
+                    '&.Mui-focused': {
+                      boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.25)}`
+                    }
+                  },
+                }}
               />
             </Grid>
             
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
+              <FormControl 
+                fullWidth
+                variant="outlined"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 1.5,
+                    bgcolor: theme.palette.background.paper,
+                    transition: 'all 0.2s ease-in-out',
+                    '&.Mui-focused': {
+                      boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.25)}`
+                    }
+                  },
+                }}
+              >
                 <InputLabel>Estado</InputLabel>
                 <Select
                   name="estado"
@@ -442,10 +634,27 @@ const CitaForm: React.FC = () => {
                   label="Estado"
                   onChange={handleSelectChange}
                   disabled={saving || (!isEdit && formData.estado === 'PROGRAMADA')}
+                  // Renderizamos un Chip en el Select
+                  renderValue={(selected) => {
+                    const estado = ESTADOS_CONSULTA.find(e => e.value === selected);
+                    return estado ? (
+                      <Chip 
+                        label={estado.label} 
+                        color={estado.color as any}
+                        size="small"
+                        sx={{ fontWeight: 500 }}
+                      />
+                    ) : selected;
+                  }}
                 >
                   {ESTADOS_CONSULTA.map(estado => (
                     <MenuItem key={estado.value} value={estado.value}>
-                      {estado.label}
+                      <Chip 
+                        label={estado.label} 
+                        color={estado.color as any}
+                        size="small"
+                        sx={{ fontWeight: 500 }}
+                      />
                     </MenuItem>
                   ))}
                 </Select>
@@ -464,53 +673,119 @@ const CitaForm: React.FC = () => {
                 disabled={saving}
                 multiline
                 rows={2}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 1.5,
+                    bgcolor: theme.palette.background.paper,
+                    transition: 'all 0.2s ease-in-out',
+                    '&.Mui-focused': {
+                      boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.25)}`
+                    }
+                  },
+                }}
               />
             </Grid>
             
             {isEdit && (
               <>
                 <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Diagnóstico"
-                    name="diagnostico"
-                    value={formData.diagnostico || ''}
-                    onChange={handleChange}
-                    disabled={saving}
-                    multiline
-                    rows={3}
-                  />
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Observaciones"
-                    name="observaciones"
-                    value={formData.observaciones || ''}
-                    onChange={handleChange}
-                    disabled={saving}
-                    multiline
-                    rows={2}
-                  />
+                  <Box 
+                    sx={{ 
+                      p: 2, 
+                      border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                      borderRadius: 2,
+                      bgcolor: alpha(theme.palette.primary.main, 0.05),
+                      mb: 2
+                    }}
+                  >
+                    <Typography 
+                      variant="subtitle1" 
+                      sx={{ 
+                        mb: 2, 
+                        color: theme.palette.primary.main,
+                        fontWeight: 600
+                      }}
+                    >
+                      Información clínica
+                    </Typography>
+                    
+                    <TextField
+                      fullWidth
+                      label="Diagnóstico"
+                      name="diagnostico"
+                      value={formData.diagnostico || ''}
+                      onChange={handleChange}
+                      disabled={saving}
+                      multiline
+                      rows={3}
+                      sx={{
+                        mb: 2,
+                        '& .MuiOutlinedInput-root': {
+                          bgcolor: theme.palette.background.paper,
+                          borderRadius: 1.5,
+                        },
+                      }}
+                    />
+                    
+                    <TextField
+                      fullWidth
+                      label="Observaciones"
+                      name="observaciones"
+                      value={formData.observaciones || ''}
+                      onChange={handleChange}
+                      disabled={saving}
+                      multiline
+                      rows={2}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          bgcolor: theme.palette.background.paper,
+                          borderRadius: 1.5,
+                        },
+                      }}
+                    />
+                  </Box>
                 </Grid>
               </>
             )}
             
             <Grid item xs={12}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'flex-end', 
+                  gap: 2, 
+                  mt: { xs: 2, md: 3 } 
+                }}
+              >
                 <Button 
                   variant="outlined" 
                   onClick={() => navigate('/citas')}
                   disabled={saving}
+                  sx={{
+                    px: 3,
+                    py: 1.2,
+                    borderRadius: 1.5,
+                    borderWidth: 1.5,
+                  }}
                 >
                   Cancelar
                 </Button>
                 <Button 
                   type="submit" 
                   variant="contained" 
-                  startIcon={saving ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <SaveIcon />}
+                  startIcon={saving ? 
+                    <CircularProgress size={20} sx={{ color: 'white' }} /> : 
+                    <SaveIcon />}
                   disabled={saving}
+                  sx={{
+                    px: 3,
+                    py: 1.2,
+                    borderRadius: 1.5,
+                    boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.2)}`,
+                    '&:hover': {
+                      boxShadow: `0 6px 16px ${alpha(theme.palette.primary.main, 0.3)}`,
+                    }
+                  }}
                 >
                   {saving ? 'Guardando...' : isEdit ? 'Actualizar' : 'Guardar'}
                 </Button>
@@ -526,7 +801,19 @@ const CitaForm: React.FC = () => {
         onClose={handleCloseNotification}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseNotification} severity={notification.severity} sx={{ width: '100%' }}>
+        <Alert 
+          onClose={handleCloseNotification} 
+          severity={notification.severity} 
+          variant="filled"
+          sx={{ 
+            width: '100%',
+            boxShadow: `0 4px 12px ${alpha(
+              notification.severity === 'success' ? theme.palette.success.main :
+              notification.severity === 'error' ? theme.palette.error.main :
+              theme.palette.info.main, 0.3
+            )}`,
+          }}
+        >
           {notification.message}
         </Alert>
       </Snackbar>

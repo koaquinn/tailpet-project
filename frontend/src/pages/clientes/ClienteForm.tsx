@@ -15,8 +15,6 @@ import {
 import { getCliente, createCliente, updateCliente } from '../../api/clienteApi';
 import { Cliente } from '../../types/cliente';
 import { validateRut, validateEmail, validatePhone } from '../../utils/formatters';
-import './ClienteForm.css';
-
 // Interfaces
 interface FormErrors {
   [key: string]: string | undefined;
