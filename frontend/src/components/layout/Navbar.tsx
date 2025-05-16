@@ -279,16 +279,6 @@ const Navbar: React.FC<NavbarProps> = ({ open, handleDrawerOpen, user }) => {
                   }}
                 />
               </Box>
-              <Divider sx={{ my: 1 }} />
-              <MenuItem onClick={handleCloseUserMenu} sx={{ py: 1.5 }}>
-                <PersonIcon fontSize="small" sx={{ mr: 1.5, color: theme.palette.primary.main }} />
-                <Typography>Mi Perfil</Typography>
-              </MenuItem>
-              <MenuItem onClick={handleCloseUserMenu} sx={{ py: 1.5 }}>
-                <SettingsIcon fontSize="small" sx={{ mr: 1.5, color: theme.palette.primary.main }} />
-                <Typography>Configuración</Typography>
-              </MenuItem>
-              <Divider sx={{ my: 1 }} />
               <MenuItem 
                 onClick={handleLogout}
                 sx={{ 
