@@ -164,18 +164,83 @@ const FacturasList: React.FC = () => {
             />
           </Grid>
           
-          <Grid item xs={12} md={2}>
+          <Grid item xs={12} sm={6} md={2}>
             <FormControl fullWidth>
-              <InputLabel>Estado</InputLabel>
+              <InputLabel 
+                id="estado-filter-label"
+                shrink={filterEstado !== ''}
+                sx={{
+                  backgroundColor: 'background.paper',
+                  px: 1,
+                  transform: 'translate(14px, -9px) scale(0.75)',
+                }}
+              >
+                Estado
+              </InputLabel>
               <Select
+                labelId="estado-filter-label"
                 value={filterEstado}
                 label="Estado"
                 onChange={handleFilterEstadoChange}
+                displayEmpty
+                renderValue={(selected) => {
+                  if (!selected) {
+                    return <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>Todos</span>;
+                  }
+                  const estado = [
+                    { value: 'PENDIENTE', label: 'Pendiente', color: 'warning' },
+                    { value: 'PAGADA', label: 'Pagada', color: 'success' },
+                    { value: 'ANULADA', label: 'Anulada', color: 'error' },
+                  ].find(e => e.value === selected);
+                  return estado ? (
+                    <Chip 
+                      label={estado.label} 
+                      color={estado.color as any}
+                      size="small"
+                      sx={{ fontWeight: 500 }}
+                    />
+                  ) : (
+                    <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>Todos</span>
+                  );
+                }}
+                MenuProps={{
+                 PaperProps: {
+                    sx: {
+                      maxHeight: 300,
+                      minWidth: 200,
+                      mt: 1,
+                      '& .MuiMenuItem-root': {
+                        minHeight: '48px',
+                      },
+                    },
+                  },
+                }}
+                sx={{
+                  '& .MuiSelect-select': {
+                    display: 'flex',
+                    alignItems: 'center',
+                    minHeight: '1.4375em',
+                    padding: '16.5px 14px',
+                  },
+                }}
               >
-                <MenuItem value="">Todos</MenuItem>
-                <MenuItem value="PENDIENTE">Pendiente</MenuItem>
-                <MenuItem value="PAGADA">Pagada</MenuItem>
-                <MenuItem value="ANULADA">Anulada</MenuItem>
+                <MenuItem value="">
+                  <em>Todos</em>
+                </MenuItem>
+                {[
+                  { value: 'PENDIENTE', label: 'Pendiente', color: 'warning' },
+                  { value: 'PAGADA', label: 'Pagada', color: 'success' },
+                  { value: 'ANULADA', label: 'Anulada', color: 'error' },
+                ].map((estado) => (
+                  <MenuItem key={estado.value} value={estado.value}>
+                    <Chip 
+                      label={estado.label} 
+                      color={estado.color as any}
+                      size="small"
+                      sx={{ fontWeight: 500, minWidth: 100 }}
+                    />
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
           </Grid>

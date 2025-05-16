@@ -63,10 +63,8 @@ const MascotaForm = () => {
   const isEdit = Boolean(id);
   const { hasRole } = useAuth();
   
-  // Verificar permisos
   const canEdit = hasRole('ADMIN') || hasRole('RECEPCIONISTA');
   
-  // Obtener clienteId y fromClientView de query params
   const searchParams = new URLSearchParams(location.search);
   const preselectedClienteId = searchParams.get('clienteId');
   const fromClientView = searchParams.get('fromClientView') === 'true';
@@ -104,7 +102,6 @@ const MascotaForm = () => {
     severity: 'success',
   });
 
-  // Redireccionar si no tiene permisos
   useEffect(() => {
     if (!canEdit) {
       navigate('/forbidden');
@@ -128,7 +125,6 @@ const MascotaForm = () => {
           const mascotaData = await getMascota(Number(id));
           setFormData({
             ...mascotaData,
-            // Asegurarse de que estos campos estén presentes
             nombre: mascotaData.nombre || '',
             cliente: mascotaData.cliente || 0,
             especie: mascotaData.especie || 0,
@@ -145,7 +141,6 @@ const MascotaForm = () => {
             setRazas(razasData.results || []);
           }
         } else if (preselectedClienteId) {
-          // Si es un nuevo registro con cliente preseleccionado
           setFormData(prev => ({
             ...prev,
             cliente: Number(preselectedClienteId)
@@ -163,7 +158,6 @@ const MascotaForm = () => {
     fetchInitialData();
   }, [isEdit, id, preselectedClienteId]);
 
-  // Cargar razas cuando cambia la especie
   useEffect(() => {
     const fetchRazas = async () => {
       if (formData.especie) {
@@ -171,7 +165,6 @@ const MascotaForm = () => {
           const razasData = await getRazas(formData.especie);
           setRazas(razasData.results || []);
 
-          // Verificar si la raza actual es válida para la nueva especie
           const razaActualValida = razasData.results?.some(
             (raza) => raza.id === formData.raza,
           );
@@ -192,10 +185,8 @@ const MascotaForm = () => {
     };
 
     fetchRazas();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.especie]);
 
-  // Detectar cambios en el formulario
   useEffect(() => {
     if (isEdit && !loading && !dataLoading) {
       setHasChanges(true);
@@ -220,7 +211,6 @@ const MascotaForm = () => {
       }
     }
 
-    // Verificar que la fecha de nacimiento no sea futura
     try {
       const fechaNacimiento = parseISO(formData.fecha_nacimiento);
       const hoy = new Date();
@@ -284,7 +274,6 @@ const MascotaForm = () => {
 
   const handleCloseNotification = () => setNotification((prev) => ({ ...prev, open: false }));
   
-  // Función para navegar de vuelta preservando el contexto
   const navigateBack = () => {
     if (fromClientView && preselectedClienteId) {
       navigate(`/clientes/${preselectedClienteId}/mascotas`);
@@ -295,7 +284,6 @@ const MascotaForm = () => {
     }
   };
   
-  // Confirmar cancelación si hay cambios
   const handleCancel = () => {
     if (hasChanges) {
       const confirmed = window.confirm('¿Estás seguro de cancelar? Todos los cambios se perderán.');
@@ -322,7 +310,6 @@ const MascotaForm = () => {
         showNotification('Mascota creada correctamente', 'success');
       }
       
-      // Redireccionar después de guardar, preservando el contexto
       setTimeout(() => {
         navigateBack();
       }, 1500);
@@ -383,69 +370,229 @@ const MascotaForm = () => {
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.cliente} required>
-                <InputLabel>Cliente (Dueño)</InputLabel>
-                <Select
-                  name="cliente"
-                  value={formData.cliente ? formData.cliente.toString() : ''}
-                  label="Cliente (Dueño)"
-                  onChange={handleSelectChange}
-                  disabled={saving || Boolean(preselectedClienteId)}
-                >
-                  <MenuItem value="">Seleccionar cliente</MenuItem>
-                  {clientes.map((cliente) => (
-                    <MenuItem key={cliente.id} value={cliente.id?.toString() || ''}>
-                      {cliente.nombre} {cliente.apellido} - {cliente.rut}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {errors.cliente && <FormHelperText>{errors.cliente}</FormHelperText>}
-              </FormControl>
-            </Grid>
 
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.especie} required>
-                <InputLabel>Especie</InputLabel>
-                <Select
-                  name="especie"
-                  value={formData.especie ? formData.especie.toString() : ''}
-                  label="Especie"
-                  onChange={handleSelectChange}
-                  disabled={saving}
-                >
-                  <MenuItem value="">Seleccionar especie</MenuItem>
-                  {especies.map((especie) => (
-                    <MenuItem key={especie.id} value={especie.id.toString()}>
-                      {especie.nombre}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {errors.especie && <FormHelperText>{errors.especie}</FormHelperText>}
-              </FormControl>
-            </Grid>
+{/* Selector de Cliente - Versión definitiva */}
+<Grid item xs={12} md={6}>
+  <FormControl fullWidth error={!!errors.cliente} required>
+    <InputLabel 
+      id="cliente-label"
+      shrink={!!formData.cliente || undefined}
+      sx={{
+        backgroundColor: 'background.paper',
+        px: 1,
+        transform: 'translate(14px, -9px) scale(0.75)',
+        '&.Mui-focused': {
+          color: 'primary.main',
+        },
+      }}
+    >
+      Cliente (Dueño)
+    </InputLabel>
+    <Select
+      labelId="cliente-label"
+      name="cliente"
+      value={formData.cliente ? formData.cliente.toString() : ''}
+      onChange={handleSelectChange}
+      disabled={saving || Boolean(preselectedClienteId)}
+      displayEmpty
+      renderValue={(selected) => {
+        if (!selected) {
+          return <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>Seleccionar cliente</span>;
+        }
+        const cliente = clientes.find(c => c.id?.toString() === selected);
+        return cliente ? (
+          <div>
+            <div style={{ fontWeight: 500 }}>{cliente.nombre} {cliente.apellido}</div>
+            <div style={{ fontSize: '0.875rem', color: 'rgba(0, 0, 0, 0.6)' }}>
+              {cliente.rut}
+            </div>
+          </div>
+        ) : null;
+      }}
+      MenuProps={{
+        PaperProps: {
+          sx: {
+            maxHeight: 400,
+            minWidth: 300,
+            mt: 1,
+            boxShadow: '0px 5px 15px rgba(0,0,0,0.1)',
+            '& .MuiMenuItem-root': {
+              minHeight: 48,
+              padding: '8px 16px',
+              '&:hover': {
+                backgroundColor: 'rgba(99, 102, 241, 0.08)',
+              },
+            },
+          },
+        },
+        anchorOrigin: {
+          vertical: 'bottom',
+          horizontal: 'left',
+        },
+        transformOrigin: {
+          vertical: 'top',
+          horizontal: 'left',
+        },
+        disablePortal: true,
+      }}
+      sx={{
+        '& .MuiSelect-select': {
+          display: 'flex',
+          alignItems: 'center',
+          minHeight: '1.4375em',
+          padding: '16.5px 14px',
+        },
+        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+          borderWidth: '1px !important',
+          borderColor: 'primary.main !important',
+        },
+      }}
+    >
+      <MenuItem value="" disabled>
+        <em>Seleccionar cliente</em>
+      </MenuItem>
+      {clientes.map((cliente) => (
+        <MenuItem 
+          key={cliente.id} 
+          value={cliente.id?.toString() || ''}
+          sx={{ py: 1.5 }}
+        >
+          <Box>
+            <Typography fontWeight={500}>
+              {cliente.nombre} {cliente.apellido}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {cliente.rut}
+            </Typography>
+          </Box>
+        </MenuItem>
+      ))}
+    </Select>
+    {errors.cliente && <FormHelperText>{errors.cliente}</FormHelperText>}
+  </FormControl>
+</Grid>
 
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.raza} required>
-                <InputLabel>Raza</InputLabel>
-                <Select
-                  name="raza"
-                  value={formData.raza ? formData.raza.toString() : ''}
-                  label="Raza"
-                  onChange={handleSelectChange}
-                  disabled={!formData.especie || saving}
-                >
-                  <MenuItem value="">Seleccionar raza</MenuItem>
-                  {razas.map((raza) => (
-                    <MenuItem key={raza.id} value={raza.id.toString()}>
-                      {raza.nombre}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {errors.raza && <FormHelperText>{errors.raza}</FormHelperText>}
-                {!formData.especie && <FormHelperText>Seleccione primero una especie</FormHelperText>}
-              </FormControl>
-            </Grid>
+{/* Selector de Especie - Versión definitiva */}
+<Grid item xs={12} md={6}>
+  <FormControl fullWidth error={!!errors.especie} required>
+    <InputLabel 
+      id="especie-label"
+      shrink={!!formData.especie || undefined}
+      sx={{
+        backgroundColor: 'background.paper',
+        px: 1,
+        transform: 'translate(14px, -9px) scale(0.75)',
+      }}
+    >
+      Especie
+    </InputLabel>
+    <Select
+      labelId="especie-label"
+      name="especie"
+      value={formData.especie ? formData.especie.toString() : ''}
+      onChange={handleSelectChange}
+      disabled={saving}
+      displayEmpty
+      renderValue={(selected) => {
+        if (!selected) {
+          return <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>Seleccionar especie</span>;
+        }
+        const especie = especies.find(e => e.id.toString() === selected);
+        return especie?.nombre || selected;
+      }}
+      MenuProps={{
+        PaperProps: {
+          sx: {
+            maxHeight: 300,
+            minWidth: 250,
+            mt: 1,
+          },
+        },
+      }}
+      sx={{
+        '& .MuiSelect-select': {
+          padding: '16.5px 14px',
+        },
+      }}
+    >
+      <MenuItem value="" disabled>
+        <em>Seleccionar especie</em>
+      </MenuItem>
+      {especies.map((especie) => (
+        <MenuItem key={especie.id} value={especie.id.toString()}>
+          {especie.nombre}
+        </MenuItem>
+      ))}
+    </Select>
+    {errors.especie && <FormHelperText>{errors.especie}</FormHelperText>}
+  </FormControl>
+</Grid>
+
+{/* Selector de Raza - Versión definitiva */}
+<Grid item xs={12} md={6}>
+  <FormControl fullWidth error={!!errors.raza} required>
+    <InputLabel 
+      id="raza-label"
+      shrink={!!formData.raza || undefined}
+      sx={{
+        backgroundColor: 'background.paper',
+        px: 1,
+        transform: 'translate(14px, -9px) scale(0.75)',
+      }}
+    >
+      Raza
+    </InputLabel>
+    <Select
+      labelId="raza-label"
+      name="raza"
+      value={formData.raza ? formData.raza.toString() : ''}
+      onChange={handleSelectChange}
+      disabled={!formData.especie || saving}
+      displayEmpty
+      renderValue={(selected) => {
+        if (!selected) {
+          return (
+            <span style={{ color: formData.especie ? 'rgba(0, 0, 0, 0.6)' : 'rgba(0, 0, 0, 0.38)' }}>
+              {formData.especie ? 'Seleccionar raza' : 'Seleccione primero una especie'}
+            </span>
+          );
+        }
+        const raza = razas.find(r => r.id.toString() === selected);
+        return raza?.nombre || selected;
+      }}
+      MenuProps={{
+        PaperProps: {
+          sx: {
+            maxHeight: 300,
+            minWidth: 250,
+            mt: 1,
+          },
+        },
+      }}
+      sx={{
+        '& .MuiSelect-select': {
+          padding: '16.5px 14px',
+        },
+      }}
+    >
+      {formData.especie ? (
+        razas.map((raza) => (
+          <MenuItem key={raza.id} value={raza.id.toString()}>
+            {raza.nombre}
+          </MenuItem>
+        ))
+      ) : (
+        <MenuItem disabled>
+          <Typography variant="body2" color="text.disabled">
+            Seleccione primero una especie
+          </Typography>
+        </MenuItem>
+      )}
+    </Select>
+    {errors.raza && <FormHelperText>{errors.raza}</FormHelperText>}
+  </FormControl>
+</Grid>
+
 
             <Grid item xs={12} md={6}>
               <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
@@ -469,21 +616,37 @@ const MascotaForm = () => {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.sexo} required>
-                <InputLabel>Sexo</InputLabel>
-                <Select 
-                  name="sexo" 
-                  value={formData.sexo} 
-                  label="Sexo" 
-                  onChange={handleSelectChange}
-                  disabled={saving}
-                >
-                  <MenuItem value="M">Macho</MenuItem>
-                  <MenuItem value="H">Hembra</MenuItem>
-                </Select>
-                {errors.sexo && <FormHelperText>{errors.sexo}</FormHelperText>}
-              </FormControl>
-            </Grid>
+  <FormControl fullWidth error={!!errors.sexo} required>
+    <InputLabel 
+      id="sexo-label"
+      shrink={!!formData.sexo || undefined}
+      sx={{
+        backgroundColor: 'background.paper',
+        px: 1,
+        transform: 'translate(14px, -9px) scale(0.75)',
+      }}
+    >
+      Sexo
+    </InputLabel>
+    <Select
+      labelId="sexo-label"
+      name="sexo"
+      value={formData.sexo}
+      onChange={handleSelectChange}
+      disabled={saving}
+      sx={{
+        textAlign: 'left',
+        '& .MuiSelect-select': {
+          padding: '16.5px 14px',
+        },
+      }}
+    >
+      <MenuItem value="M">Macho</MenuItem>
+      <MenuItem value="H">Hembra</MenuItem>
+    </Select>
+    {errors.sexo && <FormHelperText>{errors.sexo}</FormHelperText>}
+  </FormControl>
+</Grid>
 
             <Grid item xs={12} md={6}>
               <TextField

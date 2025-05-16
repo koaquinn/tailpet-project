@@ -170,7 +170,7 @@ let theme = createTheme({
     },
   },
 });
-
+    
 // Hacer las fuentes responsive
 theme = responsiveFontSizes(theme);
 

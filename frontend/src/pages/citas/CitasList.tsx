@@ -890,98 +890,150 @@ const CitasList: React.FC = () => {
           </Grid>
           
           <Grid item xs={12} sm={6} md={2}>
-            <FormControl 
-              fullWidth
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 1.5,
-                  bgcolor: theme.palette.background.paper,
-                  transition: 'all 0.2s ease-in-out',
-                  '&.Mui-focused': {
-                    boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.25)}`
-                  }
-                }
-              }}
-            >
-              <InputLabel>Estado</InputLabel>
-              <Select
-                value={filterStatus}
-                label="Estado"
-                onChange={(e) => setFilterStatus(e.target.value)}
-                renderValue={(selected) => {
-                  if (!selected) return "Todos";
-                  const estado = ESTADOS_CONSULTA.find(e => e.value === selected);
-                  return estado ? (
-                    <Chip 
-                      label={estado.label} 
-                      color={estado.color as any}
-                      size="small"
-                      sx={{ fontWeight: 500 }}
-                    />
-                  ) : "Todos";
-                }}
-              >
-                <MenuItem value="">Todos</MenuItem>
-                {ESTADOS_CONSULTA.map((estado) => (
-                  <MenuItem key={estado.value} value={estado.value}>
-                    <Chip 
-                      label={estado.label} 
-                      color={estado.color as any}
-                      size="small"
-                      sx={{ fontWeight: 500, minWidth: 80 }}
-                    />
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
+  <FormControl fullWidth>
+    <InputLabel 
+      id="estado-filter-label"
+      shrink={filterStatus !== ''}
+      sx={{
+        backgroundColor: 'background.paper',
+        px: 1,
+        transform: 'translate(14px, -9px) scale(0.75)',
+      }}
+    >
+      Estado
+    </InputLabel>
+    <Select
+      labelId="estado-filter-label"
+      value={filterStatus}
+      label="Estado"
+      onChange={(e) => setFilterStatus(e.target.value)}
+      displayEmpty
+      renderValue={(selected) => {
+        if (!selected) {
+          return <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>Todos</span>;
+        }
+        const estado = ESTADOS_CONSULTA.find(e => e.value === selected);
+        return estado ? (
+          <Chip 
+            label={estado.label} 
+            color={estado.color as any}
+            size="small"
+            sx={{ fontWeight: 500 }}
+          />
+        ) : (
+          <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>Todos</span>
+        );
+      }}
+      MenuProps={{
+        PaperProps: {
+          sx: {
+            maxHeight: 300,
+            minWidth: 200,
+            mt: 1,
+            '& .MuiMenuItem-root': {
+              minHeight: '48px',
+            },
+          },
+        },
+      }}
+      sx={{
+        '& .MuiSelect-select': {
+          display: 'flex',
+          alignItems: 'center',
+          minHeight: '1.4375em',
+          padding: '16.5px 14px',
+        },
+      }}
+    >
+      <MenuItem value="">
+        <em>Todos</em>
+      </MenuItem>
+      {ESTADOS_CONSULTA.map((estado) => (
+        <MenuItem key={estado.value} value={estado.value}>
+          <Chip 
+            label={estado.label} 
+            color={estado.color as any}
+            size="small"
+            sx={{ fontWeight: 500, minWidth: 100 }}
+          />
+        </MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+</Grid>
           
           <Grid item xs={12} sm={6} md={2}>
-            <FormControl 
-              fullWidth
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 1.5,
-                  bgcolor: theme.palette.background.paper,
-                  transition: 'all 0.2s ease-in-out',
-                  '&.Mui-focused': {
-                    boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.25)}`
-                  }
-                }
-              }}
-            >
-              <InputLabel>Tipo</InputLabel>
-              <Select
-                value={filterType}
-                label="Tipo"
-                onChange={(e) => setFilterType(e.target.value)}
-                renderValue={(selected) => {
-                  if (!selected) return "Todos";
-                  const tipo = TIPOS_CONSULTA.find(t => t.value === selected);
-                  return tipo ? (
-                    <Chip 
-                      label={tipo.label} 
-                      color={tipo.color as any}
-                      size="small"
-                      sx={{ fontWeight: 500 }}
-                    />
-                  ) : "Todos";
-                }}
-              >
-                <MenuItem value="">Todos</MenuItem>
-                {TIPOS_CONSULTA.map((tipo) => (
-                  <MenuItem key={tipo.value} value={tipo.value}>
-                    <Chip 
-                      label={tipo.label} 
-                      color={tipo.color as any}
-                      size="small"
-                      sx={{ fontWeight: 500, minWidth: 80 }}
-                    />
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
+  <FormControl fullWidth>
+    <InputLabel 
+      id="tipo-filter-label"
+      shrink={filterType !== ''}
+      sx={{
+        backgroundColor: 'background.paper',
+        px: 1,
+        transform: 'translate(14px, -9px) scale(0.75)',
+      }}
+    >
+      Tipo
+    </InputLabel>
+    <Select
+      labelId="tipo-filter-label"
+      value={filterType}
+      label="Tipo"
+      onChange={(e) => setFilterType(e.target.value)}
+      displayEmpty
+      renderValue={(selected) => {
+        if (!selected) {
+          return <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>Todos</span>;
+        }
+        const tipo = TIPOS_CONSULTA.find(t => t.value === selected);
+        return tipo ? (
+          <Chip 
+            label={tipo.label} 
+            color={tipo.color as any}
+            size="small"
+            sx={{ fontWeight: 500 }}
+          />
+        ) : (
+          <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>Todos</span>
+        );
+      }}
+      MenuProps={{
+        PaperProps: {
+          sx: {
+            maxHeight: 300,
+            minWidth: 200,
+            mt: 1,
+            '& .MuiMenuItem-root': {
+              minHeight: '48px',
+            },
+          },
+        },
+      }}
+      sx={{
+        '& .MuiSelect-select': {
+          display: 'flex',
+          alignItems: 'center',
+          minHeight: '1.4375em',
+          padding: '16.5px 14px',
+        },
+      }}
+    >
+      <MenuItem value="">
+        <em>Todos</em>
+      </MenuItem>
+      {TIPOS_CONSULTA.map((tipo) => (
+        <MenuItem key={tipo.value} value={tipo.value}>
+          <Chip 
+            label={tipo.label} 
+            color={tipo.color as any}
+            size="small"
+            sx={{ fontWeight: 500, minWidth: 100 }}
+          />
+        </MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+</Grid>
           
           <Grid item xs={12} md={2}>
             <Box 
