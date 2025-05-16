@@ -29,8 +29,43 @@ import { getCliente, getMascotasByCliente } from '../../api/clienteApi';
 import { getEspecie, getRaza } from '../../api/mascotaApi';
 import { Mascota } from '../../types/mascota';
 import { Cliente } from '../../types/cliente';
-import { sexoToText, booleanToText, calculateAge, formatDate } from '../../utils/formatters';
+import { sexoToText, booleanToText, formatDate } from '../../utils/formatters';
 import { useAuth } from '../../context/AuthContext';
+
+// Función mejorada para calcular la edad correctamente con años y meses
+const calculateAgeImproved = (fechaNacimiento: string | null | undefined): string => {
+  if (!fechaNacimiento) return 'N/A';
+  
+  const birthDate = new Date(fechaNacimiento);
+  const today = new Date();
+  
+  // Validar fecha
+  if (isNaN(birthDate.getTime())) return 'Fecha inválida';
+  
+  let years = today.getFullYear() - birthDate.getFullYear();
+  let months = today.getMonth() - birthDate.getMonth();
+  
+  // Ajustar si no hemos llegado aún al mes de cumpleaños
+  if (months < 0 || (months === 0 && today.getDate() < birthDate.getDate())) {
+    years--;
+    months += 12;
+  }
+  
+  // Formatear la respuesta según corresponda
+  if (years > 0) {
+    if (months > 0) {
+      return `${years} ${years === 1 ? 'año' : 'años'} y ${months} ${months === 1 ? 'mes' : 'meses'}`;
+    }
+    return `${years} ${years === 1 ? 'año' : 'años'}`;
+  } else {
+    if (months > 0) {
+      return `${months} ${months === 1 ? 'mes' : 'meses'}`;
+    }
+    // Si es menor a un mes
+    const days = Math.floor((today.getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24));
+    return `${days} ${days === 1 ? 'día' : 'días'}`;
+  }
+};
 
 interface MascotaEnriquecida extends Mascota {
   especieNombre?: string;
@@ -40,7 +75,7 @@ interface MascotaEnriquecida extends Mascota {
 
 const ClienteMascotas: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const clienteId = Number(id);
+  const clienteId = id ? Number(id) : 0; // Manejo seguro de id
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -146,6 +181,12 @@ const ClienteMascotas: React.FC = () => {
 
   // Función para refrescar datos
   const fetchData = async (showRefreshIndicator = true) => {
+    if (!clienteId) {
+      setError('ID de cliente no válido');
+      setLoading(false);
+      return;
+    }
+
     try {
       if (showRefreshIndicator) setRefreshing(true);
       setError(null);
@@ -156,15 +197,26 @@ const ClienteMascotas: React.FC = () => {
         getMascotasByCliente(clienteId)
       ]);
 
+      if (!mascotasData.results) {
+        throw new Error('No se recibieron datos de mascotas válidos');
+      }
+
       // Optimización: extraer IDs únicos para evitar llamadas duplicadas
-      const especiesIds = Array.from(new Set(mascotasData.results.map(m => m.especie).filter(Boolean)));
-      const razasIds = Array.from(new Set(mascotasData.results.map(m => m.raza).filter(Boolean)));
+      const especiesIds = Array.from(
+        new Set(mascotasData.results.map(m => m.especie).filter(Boolean))
+      );
+      const razasIds = Array.from(
+        new Set(mascotasData.results.map(m => m.raza).filter(Boolean))
+      );
 
       // Obtener todas las especies y razas necesarias en una sola vez
-      const [especiesList, razasList] = await Promise.all([
-        Promise.all(especiesIds.map(id => getEspecie(id))),
-        Promise.all(razasIds.map(id => getRaza(id)))
-      ]);
+      const especiesList = especiesIds.length > 0 
+        ? await Promise.all(especiesIds.map(id => getEspecie(id)))
+        : [];
+      
+      const razasList = razasIds.length > 0
+        ? await Promise.all(razasIds.map(id => getRaza(id)))
+        : [];
 
       // Crear mapas para acceso rápido
       const especiesMap = new Map(especiesList.map(e => [e.id, e.nombre]));
@@ -173,9 +225,9 @@ const ClienteMascotas: React.FC = () => {
       // Enriquecer mascotas con nombres de especie y raza usando los mapas
       const mascotasEnriquecidas = mascotasData.results.map(mascota => ({
         ...mascota,
-        especieNombre: especiesMap.get(mascota.especie) || 'Desconocido',
-        razaNombre: razasMap.get(mascota.raza) || 'Desconocida',
-        edad: calculateAge(mascota.fecha_nacimiento)
+        especieNombre: mascota.especie ? especiesMap.get(mascota.especie) || 'Desconocido' : 'Desconocido',
+        razaNombre: mascota.raza ? razasMap.get(mascota.raza) || 'Desconocida' : 'Desconocida',
+        edad: calculateAgeImproved(mascota.fecha_nacimiento)
       }));
 
       setCliente(clienteData);
@@ -191,7 +243,9 @@ const ClienteMascotas: React.FC = () => {
 
   // Cargar datos iniciales
   useEffect(() => {
-    fetchData(false);
+    if (clienteId) {
+      fetchData(false);
+    }
   }, [clienteId]);
 
   // Memoizar las mascotas paginadas para evitar recálculos innecesarios
@@ -415,7 +469,7 @@ const ClienteMascotas: React.FC = () => {
                     key={mascota.id}
                     variant="outlined"
                     sx={{ mb: 2, cursor: 'pointer' }}
-                    onClick={() => navigate(`/mascotas/editar/${mascota.id}`)}
+                    onClick={() => mascota.id && navigate(`/mascotas/editar/${mascota.id}`)}
                   >
                     <CardContent>
                       <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -442,7 +496,7 @@ const ClienteMascotas: React.FC = () => {
                         </Grid>
                         <Grid item xs={6}>
                           <Typography variant="body2">
-                            <strong>Edad:</strong> {mascota.edad} años
+                            <strong>Edad:</strong> {mascota.edad}
                           </Typography>
                         </Grid>
                         <Grid item xs={6}>
@@ -488,7 +542,7 @@ const ClienteMascotas: React.FC = () => {
                             size="small"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleMenuOpen(e, mascota.id!);
+                              if (mascota.id) handleMenuOpen(e, mascota.id);
                             }}
                           >
                             <MoreIcon />
@@ -555,12 +609,12 @@ const ClienteMascotas: React.FC = () => {
                       key={mascota.id}
                       hover
                       sx={{ cursor: 'pointer' }}
-                      onClick={() => goToMascotaDetail(mascota.id!)}
+                      onClick={() => mascota.id && goToMascotaDetail(mascota.id)}
                     >
                       <TableCell>{mascota.nombre}</TableCell>
                       <TableCell>{mascota.especieNombre}</TableCell>
                       <TableCell>{mascota.razaNombre}</TableCell>
-                      <TableCell>{mascota.edad} años</TableCell>
+                      <TableCell>{mascota.edad}</TableCell>
                       <TableCell>{sexoToText(mascota.sexo)}</TableCell>
                       <TableCell>
                         <Chip
@@ -647,7 +701,7 @@ const ClienteMascotas: React.FC = () => {
                               size="small"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleMenuOpen(e, mascota.id!);
+                                if (mascota.id) handleMenuOpen(e, mascota.id);
                               }}
                               aria-label="Más opciones"
                             >
