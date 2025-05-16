@@ -22,7 +22,7 @@ export interface ConsultaEnCurso {
     frecuencia: string;
     duracion: string;
   }>;
-  estado: 'PROGRAMADA' | 'EN_CURSO' | 'COMPLETADA' | 'CANCELADA';
+  estado: 'PROGRAMADA' | 'EN CURSO' | 'COMPLETADA' | 'CANCELADA';
   tipo: 'RUTINA' | 'EMERGENCIA' | 'SEGUIMIENTO';
 }
 
@@ -37,7 +37,7 @@ const consultaApi = {
   // Inicia una consulta (cambio de estado a EN_CURSO)
   iniciarConsulta: async (id: number): Promise<ConsultaEnCurso> => {
     const { data } = await axiosInstance.patch<ConsultaEnCurso>(`/citas/consultas/${id}/`, {
-      estado: 'EN_CURSO'
+      estado: 'EN CURSO'
     });
     return data;
   },
