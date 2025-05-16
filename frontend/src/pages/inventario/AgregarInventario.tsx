@@ -25,7 +25,16 @@ import {
   IconButton,
   Popover,
   Tabs,
-  Tab
+  Tab,
+  useTheme,
+  alpha,
+  Divider,
+  Card,
+  CardContent,
+  Fade,
+  Alert,
+  Breadcrumbs,
+  Link
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -33,12 +42,18 @@ import {
   Warning as WarningIcon,
   CalendarToday as CalendarIcon,
   Add as AddIcon,
-  LocalPharmacy as PharmacyIcon
+  LocalPharmacy as PharmacyIcon,
+  Inventory as InventoryIcon,
+  Home as HomeIcon,
+  Event as EventIcon,
+  Info as InfoIcon,
+  Done as DoneIcon,
+  Error as ErrorIcon
 } from '@mui/icons-material';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { format, isBefore, parse, isValid } from 'date-fns';
+import { format, isBefore, parse, isValid, addYears } from 'date-fns';
 import { es } from 'date-fns/locale';
 import inventarioApi, { Medicamento, LoteMedicamento, Proveedor } from '../../api/inventarioApi';
 import { useAuth } from '../../context/AuthContext';
@@ -60,7 +75,11 @@ function TabPanel(props: TabPanelProps) {
       aria-labelledby={`inventario-tab-${index}`}
       {...other}
     >
-      {value === index && <Box sx={{ py: 2 }}>{children}</Box>}
+      {value === index && (
+        <Fade in={value === index}>
+          <Box sx={{ py: 3 }}>{children}</Box>
+        </Fade>
+      )}
     </div>
   );
 }
@@ -99,8 +118,10 @@ const validateDate = (dateString: string): string | null => {
 const InventarioAdd: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const theme = useTheme();
   const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Estados para medicamentos y lotes
@@ -171,7 +192,7 @@ const InventarioAdd: React.FC = () => {
     const currentDate = tabValue === 0 ? 
       nuevoLote.fecha_vencimiento : 
       ''; // Puedes agregar fecha para medicamento si es necesario
-    setTempDate(currentDate ? parse(currentDate, 'dd-MM-yyyy', new Date()) : new Date());
+    setTempDate(currentDate ? parse(currentDate, 'dd-MM-yyyy', new Date()) : addYears(new Date(), 1));
   };
 
   const handleCloseCalendar = () => {
@@ -246,48 +267,49 @@ const InventarioAdd: React.FC = () => {
 
   // Funciones para enviar los formularios
   const handleSubmitLote = async () => {
-  try {
-    // Validación adicional en el frontend
-    if (nuevoLote.cantidad <= 0) {
-      setError('La cantidad debe ser un número positivo');
-      return;
+    try {
+      // Validación adicional en el frontend
+      if (nuevoLote.cantidad <= 0) {
+        setError('La cantidad debe ser un número positivo');
+        return;
+      }
+
+      setSubmitting(true);
+      setError(null);
+
+      // Asegúrate de convertir los tipos correctamente
+      const entradaData = {
+        cantidad: Number(nuevoLote.cantidad),
+        numero_lote: nuevoLote.numero_lote,
+        fecha_vencimiento: format(
+          parse(nuevoLote.fecha_vencimiento, 'dd-MM-yyyy', new Date()),
+          'yyyy-MM-dd'
+        ),
+        proveedor_id: Number(nuevoLote.proveedor_id),
+        precio_compra: Number(nuevoLote.precio_compra),
+        motivo: nuevoLote.motivo || 'Entrada de inventario'
+      };
+
+      const response = await inventarioApi.registrarEntrada(
+        Number(nuevoLote.medicamento_id),
+        entradaData
+      );
+
+      navigate('/inventario', { 
+        state: { success: 'Lote registrado correctamente' } 
+      });
+    } catch (error: any) {
+      console.error('Error al registrar lote:', error);
+      setError(error.response?.data?.error || 'Error al registrar el lote');
+      setConfirmDialogOpen(false);
+    } finally {
+      setSubmitting(false);
     }
-
-    setLoading(true);
-    setError(null);
-
-    // Asegúrate de convertir los tipos correctamente
-    const entradaData = {
-      cantidad: Number(nuevoLote.cantidad),
-      numero_lote: nuevoLote.numero_lote,
-      fecha_vencimiento: format(
-        parse(nuevoLote.fecha_vencimiento, 'dd-MM-yyyy', new Date()),
-        'yyyy-MM-dd'
-      ),
-      proveedor_id: Number(nuevoLote.proveedor_id),
-      precio_compra: Number(nuevoLote.precio_compra),
-      motivo: nuevoLote.motivo || 'Entrada de inventario'
-    };
-
-    const response = await inventarioApi.registrarEntrada(
-      Number(nuevoLote.medicamento_id),
-      entradaData
-    );
-
-    navigate('/inventario', { 
-      state: { success: 'Lote registrado correctamente' } 
-    });
-  } catch (error: any) {
-    console.error('Error al registrar lote:', error);
-    setError(error.response?.data?.error || 'Error al registrar el lote');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleSubmitMedicamento = async () => {
     try {
-      setLoading(true);
+      setSubmitting(true);
       await inventarioApi.createMedicamento(nuevoMedicamento);
       
       navigate('/inventario', { 
@@ -297,14 +319,17 @@ const InventarioAdd: React.FC = () => {
       console.error('Error al crear medicamento:', error);
       setError('Error al crear el medicamento');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   if (loading && medicamentos.length === 0) {
     return (
-      <Container sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
+      <Container sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh' }}>
+        <CircularProgress size={60} thickness={4} />
+        <Typography variant="h6" color="text.secondary" sx={{ mt: 3 }}>
+          Cargando datos de inventario...
+        </Typography>
       </Container>
     );
   }
@@ -312,45 +337,193 @@ const InventarioAdd: React.FC = () => {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
       <Container maxWidth="md">
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h4" component="h1">
-            {tabValue === 0 ? 'Registrar Nuevo Lote' : 'Registrar Nuevo Medicamento'}
-          </Typography>
+        {/* Encabezado y navegación */}
+        <Box sx={{ mb: 3 }}>
+          <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
+            <Link 
+              underline="hover" 
+              color="inherit" 
+              href="/" 
+              sx={{ display: 'flex', alignItems: 'center' }}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('/');
+              }}
+            >
+              <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+              Inicio
+            </Link>
+            <Link
+              underline="hover"
+              color="inherit"
+              href="/inventario"
+              sx={{ display: 'flex', alignItems: 'center' }}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('/inventario');
+              }}
+            >
+              <InventoryIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+              Inventario
+            </Link>
+            <Typography color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}>
+              {tabValue === 0 ? (
+                <>
+                  <PharmacyIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+                  Registrar Lote
+                </>
+              ) : (
+                <>
+                  <AddIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+                  Nuevo Medicamento
+                </>
+              )}
+            </Typography>
+          </Breadcrumbs>
           
-          <Button
-            variant="outlined"
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate('/inventario')}
-          >
-            Volver al Inventario
-          </Button>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography 
+              variant="h4" 
+              component="h1" 
+              sx={{ 
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center' 
+              }}
+            >
+              {tabValue === 0 ? (
+                <>
+                  <PharmacyIcon 
+                    sx={{ 
+                      mr: 1.5, 
+                      color: theme.palette.secondary.main,
+                      fontSize: 32 
+                    }} 
+                  />
+                  Registrar Nuevo Lote
+                </>
+              ) : (
+                <>
+                  <AddIcon 
+                    sx={{ 
+                      mr: 1.5, 
+                      color: theme.palette.primary.main,
+                      fontSize: 32 
+                    }} 
+                  />
+                  Registrar Nuevo Medicamento
+                </>
+              )}
+            </Typography>
+            
+            <Button
+              variant="outlined"
+              startIcon={<ArrowBackIcon />}
+              onClick={() => navigate('/inventario')}
+              sx={{ 
+                borderRadius: 1.5,
+                textTransform: 'none',
+                fontWeight: 500
+              }}
+            >
+              Volver al Inventario
+            </Button>
+          </Box>
         </Box>
         
+        {/* Mensaje de error */}
         {error && (
-          <Paper sx={{ p: 2, mb: 3, bgcolor: 'error.light', color: 'error.contrastText' }}>
-            <Typography>{error}</Typography>
-            <Button 
-              variant="outlined" 
-              size="small" 
-              sx={{ mt: 1, bgcolor: 'white' }} 
-              onClick={() => setError(null)}
-            >
-              Cerrar
-            </Button>
-          </Paper>
+          <Alert 
+            severity="error" 
+            variant="outlined"
+            sx={{ 
+              mb: 3, 
+              borderRadius: 2,
+              boxShadow: `0 2px 8px ${alpha(theme.palette.error.main, 0.15)}`,
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            icon={<ErrorIcon />}
+            action={
+              <Button 
+                color="error" 
+                size="small" 
+                onClick={() => setError(null)}
+                sx={{ fontWeight: 500 }}
+              >
+                Cerrar
+              </Button>
+            }
+          >
+            <Typography variant="body1" fontWeight={500}>
+              {error}
+            </Typography>
+          </Alert>
         )}
         
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Tabs value={tabValue} onChange={handleTabChange} variant="fullWidth">
-            <Tab label="Registrar Lote" icon={<PharmacyIcon />} {...a11yProps(0)} />
-            <Tab label="Nuevo Medicamento" icon={<AddIcon />} {...a11yProps(1)} />
+        {/* Panel principal con tabs */}
+        <Paper 
+          elevation={2}
+          sx={{ 
+            p: 3, 
+            mb: 3, 
+            borderRadius: 2,
+            boxShadow: `0 4px 20px 0 ${alpha(theme.palette.grey[500], 0.08)}, 
+                        0 2px 8px 0 ${alpha(theme.palette.grey[500], 0.06)}`
+          }}
+        >
+          <Tabs 
+            value={tabValue} 
+            onChange={handleTabChange} 
+            variant="fullWidth"
+            sx={{ 
+              mb: 2,
+              borderBottom: 1,
+              borderColor: 'divider',
+              '& .MuiTab-root': {
+                fontSize: '1rem',
+                fontWeight: 500,
+                textTransform: 'none',
+                minHeight: 56,
+                borderRadius: '8px 8px 0 0',
+              },
+              '& .Mui-selected': {
+                fontWeight: 600,
+                transition: 'all 0.2s',
+              },
+              '& .MuiTabs-indicator': {
+                height: 3,
+                borderRadius: '3px 3px 0 0',
+              },
+            }}
+          >
+            <Tab 
+              label="Registrar Lote" 
+              icon={<PharmacyIcon />} 
+              iconPosition="start"
+              {...a11yProps(0)} 
+            />
+            <Tab 
+              label="Nuevo Medicamento" 
+              icon={<AddIcon />} 
+              iconPosition="start"
+              {...a11yProps(1)} 
+            />
           </Tabs>
 
           {/* Formulario para registrar lotes */}
           <TabPanel value={tabValue} index={0}>
             <Grid container spacing={3}>
               <Grid item xs={12}>
-                <FormControl fullWidth required>
+                <FormControl 
+                  fullWidth 
+                  required
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 1.5,
+                    }
+                  }}
+                >
                   <InputLabel id="medicamento-label">Medicamento</InputLabel>
                   <Select
                     labelId="medicamento-label"
@@ -359,6 +532,19 @@ const InventarioAdd: React.FC = () => {
                     value={nuevoLote.medicamento_id}
                     onChange={handleMedicamentoSelect}
                     label="Medicamento"
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          borderRadius: 1.5,
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                        }
+                      },
+                      container: document.body,
+                      transformOrigin: {
+                        vertical: 'top',
+                        horizontal: 'left',
+                      }
+                    }}
                   >
                     {medicamentos.map((med) => (
                       <MenuItem key={med.id} value={med.id}>
@@ -369,30 +555,91 @@ const InventarioAdd: React.FC = () => {
                 </FormControl>
               </Grid>
               
+              {/* Información del medicamento seleccionado */}
               {selectedMedicamento && (
-  <           Grid item xs={12}>
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="subtitle1">Proveedor:</Typography>
-                      <Typography>{selectedMedicamento.proveedor_nombre}</Typography>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="subtitle1">Stock mínimo:</Typography>
-                      <Typography>{selectedMedicamento.stock_minimo}</Typography>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="subtitle1">Precio compra sugerido:</Typography>
-                      <Typography>${formatCurrency(selectedMedicamento.precio_compra)}</Typography>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="subtitle1">Precio venta actual:</Typography>
-                      <Typography>${formatCurrency(selectedMedicamento.precio_venta)}</Typography>
-                    </Grid>
-                  </Grid>
-                </Paper>
-              </Grid>
-            )}
+                <Grid item xs={12}>
+                  <Card 
+                    variant="outlined" 
+                    sx={{ 
+                      borderRadius: 2,
+                      borderColor: alpha(theme.palette.primary.main, 0.2),
+                      bgcolor: alpha(theme.palette.primary.main, 0.03)
+                    }}
+                  >
+                    <CardContent>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        mb: 2,
+                        color: theme.palette.primary.main
+                      }}>
+                        <InfoIcon sx={{ mr: 1 }} />
+                        <Typography variant="subtitle1" fontWeight={600}>
+                          Información del medicamento
+                        </Typography>
+                      </Box>
+                      
+                      <Divider sx={{ mb: 2 }} />
+                      
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">
+                            Proveedor
+                          </Typography>
+                          <Typography variant="body1" fontWeight={500} sx={{ mb: 1.5 }}>
+                            {selectedMedicamento.proveedor_nombre || 'No especificado'}
+                          </Typography>
+                        </Grid>
+                        
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">
+                            Stock mínimo
+                          </Typography>
+                          <Chip 
+                            label={`${selectedMedicamento.stock_minimo} unidades`} 
+                            color="primary" 
+                            variant="outlined"
+                            size="small"
+                            sx={{ 
+                              fontWeight: 500,
+                              mt: 0.5,
+                              borderRadius: 1
+                            }}
+                          />
+                        </Grid>
+                        
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">
+                            Precio de compra sugerido
+                          </Typography>
+                          <Typography 
+                            variant="body1" 
+                            fontWeight={600} 
+                            color="primary"
+                            sx={{ mb: 1 }}
+                          >
+                            ${formatCurrency(selectedMedicamento.precio_compra)}
+                          </Typography>
+                        </Grid>
+                        
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">
+                            Precio de venta actual
+                          </Typography>
+                          <Typography 
+                            variant="body1" 
+                            fontWeight={600}
+                            color="secondary"
+                            sx={{ mb: 1 }}
+                          >
+                            ${formatCurrency(selectedMedicamento.precio_venta)}
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )}
               
               <Grid item xs={12} sm={6}>
                 <TextField
@@ -402,6 +649,11 @@ const InventarioAdd: React.FC = () => {
                   value={nuevoLote.numero_lote}
                   onChange={handleLoteChange}
                   required
+                  InputProps={{
+                    sx: {
+                      borderRadius: 1.5,
+                    }
+                  }}
                 />
               </Grid>
               
@@ -424,16 +676,18 @@ const InventarioAdd: React.FC = () => {
                       <InputAdornment position="end">
                         <Tooltip title="Abrir calendario">
                           <IconButton onClick={handleOpenCalendar}>
-                            <CalendarIcon color="action" />
+                            <CalendarIcon color="primary" />
                           </IconButton>
                         </Tooltip>
                       </InputAdornment>
                     ),
+                    sx: {
+                      borderRadius: 1.5,
+                    }
                   }}
                   required
                 />
               </Grid>
-              
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
@@ -442,12 +696,17 @@ const InventarioAdd: React.FC = () => {
                   type="number"
                   value={nuevoLote.cantidad}
                   onChange={(e) => {
-                  const value = Math.max(1, parseInt(e.target.value) || 0); // Asegura que nunca sea menor a 1
-                      setNuevoLote({ ...nuevoLote, cantidad: value });
-                      }}
-                  InputProps={{ inputProps: { min: 1 } }}
+                    const value = Math.max(1, parseInt(e.target.value) || 0); // Asegura que nunca sea menor a 1
+                    setNuevoLote({ ...nuevoLote, cantidad: value });
+                  }}
+                  InputProps={{ 
+                    inputProps: { min: 1 },
+                    sx: {
+                      borderRadius: 1.5,
+                    }
+                  }}
                   required
-                  />
+                />
               </Grid>
               
               <Grid item xs={12} sm={6}>
@@ -460,7 +719,10 @@ const InventarioAdd: React.FC = () => {
                   onChange={handleLoteChange}
                   InputProps={{ 
                     inputProps: { min: 0, step: 0.01 },
-                    startAdornment: <InputAdornment position="start">$</InputAdornment>
+                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                    sx: {
+                      borderRadius: 1.5,
+                    }
                   }}
                   required
                 />
@@ -475,7 +737,31 @@ const InventarioAdd: React.FC = () => {
                   onChange={handleLoteChange}
                   multiline
                   rows={3}
+                  placeholder="Especifique el motivo de esta entrada de inventario..."
+                  InputProps={{
+                    sx: {
+                      borderRadius: 1.5,
+                    }
+                  }}
                 />
+              </Grid>
+              
+              {/* Mensaje informativo */}
+              <Grid item xs={12}>
+                <Alert 
+                  severity="info" 
+                  variant="outlined"
+                  icon={<InfoIcon />}
+                  sx={{ 
+                    borderRadius: 1.5,
+                    boxShadow: `0 2px 8px ${alpha(theme.palette.info.main, 0.1)}`,
+                  }}
+                >
+                  <Typography variant="body2">
+                    Complete todos los campos requeridos para poder registrar este lote en el inventario.
+                    El medicamento seleccionado tendrá su stock actualizado inmediatamente.
+                  </Typography>
+                </Alert>
               </Grid>
             </Grid>
           </TabPanel>
@@ -491,6 +777,12 @@ const InventarioAdd: React.FC = () => {
                   value={nuevoMedicamento.nombre}
                   onChange={handleMedicamentoChange}
                   required
+                  placeholder="Ingrese el nombre comercial del medicamento"
+                  InputProps={{
+                    sx: {
+                      borderRadius: 1.5,
+                    }
+                  }}
                 />
               </Grid>
               
@@ -503,11 +795,25 @@ const InventarioAdd: React.FC = () => {
                   onChange={handleMedicamentoChange}
                   multiline
                   rows={2}
+                  placeholder="Describa brevemente el medicamento, sus usos o características..."
+                  InputProps={{
+                    sx: {
+                      borderRadius: 1.5,
+                    }
+                  }}
                 />
               </Grid>
               
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
+                <FormControl 
+                  fullWidth 
+                  required
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 1.5,
+                    }
+                  }}
+                >
                   <InputLabel id="tipo-label">Tipo</InputLabel>
                   <Select
                     labelId="tipo-label"
@@ -519,6 +825,19 @@ const InventarioAdd: React.FC = () => {
                       tipo: e.target.value as 'ORAL' | 'INYECTABLE' | 'TOPICO' | 'OTRO'
                     })}
                     label="Tipo"
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          borderRadius: 1.5,
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                        }
+                      },
+                      container: document.body,
+                      transformOrigin: {
+                        vertical: 'top',
+                        horizontal: 'left',
+                      }
+                    }}
                   >
                     <MenuItem value="ORAL">Oral</MenuItem>
                     <MenuItem value="INYECTABLE">Inyectable</MenuItem>
@@ -536,11 +855,25 @@ const InventarioAdd: React.FC = () => {
                   value={nuevoMedicamento.presentacion}
                   onChange={handleMedicamentoChange}
                   required
+                  placeholder="Ej: Tabletas 500mg, Jarabe 120ml, etc."
+                  InputProps={{
+                    sx: {
+                      borderRadius: 1.5,
+                    }
+                  }}
                 />
               </Grid>
               
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
+                <FormControl 
+                  fullWidth 
+                  required
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 1.5,
+                    }
+                  }}
+                >
                   <InputLabel id="proveedor-label">Proveedor</InputLabel>
                   <Select
                     labelId="proveedor-label"
@@ -552,6 +885,19 @@ const InventarioAdd: React.FC = () => {
                       proveedor: Number(e.target.value)
                     })}
                     label="Proveedor"
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          borderRadius: 1.5,
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                        }
+                      },
+                      container: document.body,
+                      transformOrigin: {
+                        vertical: 'top',
+                        horizontal: 'left',
+                      }
+                    }}
                   >
                     {proveedores.map((prov) => (
                       <MenuItem key={prov.id} value={prov.id}>
@@ -571,10 +917,39 @@ const InventarioAdd: React.FC = () => {
                         ...nuevoMedicamento,
                         requiere_receta: e.target.checked
                       })}
+                      color="primary"
                     />
                   }
-                  label="Requiere receta médica"
+                  label={
+                    <Typography variant="body1" fontWeight={500}>
+                      Requiere receta médica
+                    </Typography>
+                  }
+                  sx={{ 
+                    border: 1, 
+                    borderColor: 'divider',
+                    borderRadius: 1.5,
+                    p: 1.5,
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: nuevoMedicamento.requiere_receta ? 
+                      alpha(theme.palette.primary.main, 0.05) : 'transparent',
+                    transition: 'background-color 0.2s'
+                  }}
                 />
+              </Grid>
+              
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1 }}>
+                  <Chip 
+                    label="Información de precios" 
+                    color="primary"
+                    sx={{ px: 1 }}
+                  />
+                </Divider>
               </Grid>
               
               <Grid item xs={12} sm={4}>
@@ -587,7 +962,10 @@ const InventarioAdd: React.FC = () => {
                   onChange={handleMedicamentoChange}
                   InputProps={{ 
                     inputProps: { min: 0, step: 0.01 },
-                    startAdornment: <InputAdornment position="start">$</InputAdornment>
+                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                    sx: {
+                      borderRadius: 1.5,
+                    }
                   }}
                   required
                 />
@@ -603,7 +981,10 @@ const InventarioAdd: React.FC = () => {
                   onChange={handleMedicamentoChange}
                   InputProps={{ 
                     inputProps: { min: 0, step: 0.01 },
-                    startAdornment: <InputAdornment position="start">$</InputAdornment>
+                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                    sx: {
+                      borderRadius: 1.5,
+                    }
                   }}
                   required
                 />
@@ -617,20 +998,50 @@ const InventarioAdd: React.FC = () => {
                   type="number"
                   value={nuevoMedicamento.stock_minimo}
                   onChange={handleMedicamentoChange}
-                  InputProps={{ inputProps: { min: 0 } }}
+                  InputProps={{ 
+                    inputProps: { min: 0 },
+                    sx: {
+                      borderRadius: 1.5,
+                    }
+                  }}
                   required
                 />
+              </Grid>
+              
+              {/* Mensaje informativo */}
+              <Grid item xs={12}>
+                <Alert 
+                  severity="info" 
+                  variant="outlined"
+                  icon={<InfoIcon />}
+                  sx={{ 
+                    borderRadius: 1.5,
+                    boxShadow: `0 2px 8px ${alpha(theme.palette.info.main, 0.1)}`,
+                  }}
+                >
+                  <Typography variant="body2">
+                    El stock mínimo se utilizará para alertar cuando las existencias estén por debajo de este valor.
+                    Después de crear el medicamento, podrá registrar lotes para aumentar su inventario.
+                  </Typography>
+                </Alert>
               </Grid>
             </Grid>
           </TabPanel>
         </Paper>
         
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        {/* Botón de acción */}
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            justifyContent: 'flex-end',
+            mb: 4
+          }}
+        >
           <Button
             variant="contained"
             color="primary"
             size="large"
-            startIcon={<SaveIcon />}
+            startIcon={submitting ? <CircularProgress size={24} color="inherit" /> : <SaveIcon />}
             onClick={() => {
               if (tabValue === 0) {
                 setConfirmDialogOpen(true);
@@ -639,56 +1050,181 @@ const InventarioAdd: React.FC = () => {
               }
             }}
             disabled={
-              loading || 
+              submitting || 
               (tabValue === 0 ? !validateLoteForm() : !validateMedicamentoForm())
             }
+            sx={{ 
+              borderRadius: 1.5,
+              py: 1.5,
+              px: 3,
+              textTransform: 'none',
+              fontWeight: 600,
+              boxShadow: `0 4px 12px 0 ${alpha(theme.palette.primary.main, 0.3)}`,
+              '&:hover': {
+                boxShadow: `0 6px 15px 0 ${alpha(theme.palette.primary.main, 0.4)}`,
+              }
+            }}
           >
-            {loading ? <CircularProgress size={24} /> : 'Guardar'}
+            {submitting ? 'Guardando...' : 'Guardar'}
           </Button>
         </Box>
         
         {/* Diálogo de confirmación para lotes */}
         <Dialog 
           open={confirmDialogOpen} 
-          onClose={() => setConfirmDialogOpen(false)}
+          onClose={() => !submitting && setConfirmDialogOpen(false)}
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+              p: 1
+            }
+          }}
+          maxWidth="sm"
+          fullWidth
         >
-          <DialogTitle>Confirmar entrada de inventario</DialogTitle>
-          <DialogContent>
-            <Typography>
-              ¿Está seguro que desea registrar esta entrada de inventario?
-            </Typography>
+          <DialogTitle 
+            sx={{ 
+              p: 3,
+              display: 'flex',
+              alignItems: 'center',
+              fontWeight: 600,
+              fontSize: '1.25rem',
+              borderBottom: 1,
+              borderColor: 'divider',
+              color: theme.palette.primary.main
+            }}
+          >
+            <DoneIcon sx={{ mr: 1 }} />
+            Confirmar entrada de inventario
+          </DialogTitle>
+          
+          <DialogContent sx={{ p: 3 }}>
+            <Alert 
+              severity="warning" 
+              variant="outlined"
+              sx={{ 
+                mb: 3, 
+                mt: 1,
+                borderRadius: 1.5
+              }}
+            >
+              <Typography variant="body2" fontWeight={500}>
+                Por favor verifique que la información sea correcta antes de continuar.
+                Esta acción actualizará el stock del medicamento seleccionado.
+              </Typography>
+            </Alert>
+            
             {selectedMedicamento && (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="subtitle1" gutterBottom>
-                  Detalles:
-                </Typography>
-                <Typography>
-                  <strong>Medicamento:</strong> {selectedMedicamento.nombre} - {selectedMedicamento.presentacion}
-                </Typography>
-                <Typography>
-                  <strong>Cantidad:</strong> {nuevoLote.cantidad}
-                </Typography>
-                <Typography>
-                  <strong>Lote:</strong> {nuevoLote.numero_lote}
-                </Typography>
-                <Typography>
-                  <strong>Vencimiento:</strong> {nuevoLote.fecha_vencimiento}
-                </Typography>
-                <Typography>
-                  <strong>Precio compra:</strong> ${formatCurrency(nuevoLote.precio_compra)}
-                </Typography>
-              </Box>
+              <Card 
+                variant="outlined" 
+                sx={{ 
+                  borderRadius: 2,
+                  bgcolor: alpha(theme.palette.background.default, 0.5)
+                }}
+              >
+                <CardContent>
+                  <Typography 
+                    variant="subtitle1" 
+                    gutterBottom
+                    fontWeight={600}
+                    color="primary"
+                  >
+                    Detalles del lote a registrar:
+                  </Typography>
+                  
+                  <Divider sx={{ mb: 2 }} />
+                  
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <Typography variant="body2" color="text.secondary">
+                        Medicamento
+                      </Typography>
+                      <Typography variant="body1" fontWeight={500} sx={{ mb: 1.5 }}>
+                        {selectedMedicamento.nombre} - {selectedMedicamento.presentacion}
+                      </Typography>
+                    </Grid>
+                    
+                    <Grid item xs={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Cantidad
+                      </Typography>
+                      <Chip 
+                        label={`${nuevoLote.cantidad} unidades`} 
+                        color="primary"
+                        sx={{ 
+                          fontWeight: 500, 
+                          mt: 0.5,
+                          borderRadius: 1
+                        }}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Número de lote
+                      </Typography>
+                      <Typography variant="body1" fontWeight={500}>
+                        {nuevoLote.numero_lote}
+                      </Typography>
+                    </Grid>
+                    
+                    <Grid item xs={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Fecha de vencimiento
+                      </Typography>
+                      <Typography variant="body1" fontWeight={500}>
+                        {nuevoLote.fecha_vencimiento}
+                      </Typography>
+                    </Grid>
+                    
+                    <Grid item xs={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        Precio de compra
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="primary">
+                        ${formatCurrency(nuevoLote.precio_compra)}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
             )}
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setConfirmDialogOpen(false)}>Cancelar</Button>
+          
+          <DialogActions sx={{ p: 2, px: 3 }}>
+            <Button 
+              onClick={() => setConfirmDialogOpen(false)}
+              disabled={submitting}
+              variant="outlined"
+              color="inherit"
+              sx={{ 
+                borderRadius: 1.5,
+                textTransform: 'none'
+              }}
+            >
+              Cancelar
+            </Button>
+            
             <Button 
               onClick={handleSubmitLote} 
               variant="contained" 
               color="primary"
-              disabled={loading}
+              disabled={submitting}
+              sx={{ 
+                borderRadius: 1.5,
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 3,
+                py: 1,
+                boxShadow: `0 4px 12px 0 ${alpha(theme.palette.primary.main, 0.3)}`,
+                '&:hover': {
+                  boxShadow: `0 6px 15px 0 ${alpha(theme.palette.primary.main, 0.4)}`,
+                }
+              }}
+              startIcon={submitting ? <CircularProgress size={20} color="inherit" /> : <DoneIcon />}
             >
-              {loading ? <CircularProgress size={24} /> : 'Confirmar'}
+              {submitting ? 'Procesando...' : 'Confirmar entrada'}
             </Button>
           </DialogActions>
         </Dialog>
@@ -705,12 +1241,25 @@ const InventarioAdd: React.FC = () => {
           sx={{
             '& .MuiPaper-root': {
               p: 2,
-              width: 320
+              width: 320,
+              borderRadius: 2,
+              boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
             }
           }}
         >
           <Box>
-            <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+            <Typography 
+              variant="h6" 
+              gutterBottom 
+              sx={{ 
+                mb: 2,
+                display: 'flex',
+                alignItems: 'center',
+                fontWeight: 600,
+                color: theme.palette.primary.main
+              }}
+            >
+              <EventIcon sx={{ mr: 1 }} />
               Seleccionar fecha
             </Typography>
             
@@ -718,15 +1267,43 @@ const InventarioAdd: React.FC = () => {
               value={tempDate}
               onChange={(newDate) => setTempDate(newDate || new Date())}
               minDate={new Date()}
-              sx={{ width: '100%' }}
+              sx={{ 
+                width: '100%',
+                border: 1,
+                borderColor: alpha(theme.palette.primary.main, 0.1),
+                borderRadius: 2,
+                '& .MuiPickersDay-root.Mui-selected': {
+                  bgcolor: theme.palette.primary.main,
+                  fontWeight: 'bold',
+                },
+                '& .MuiDayCalendar-weekDayLabel': {
+                  fontWeight: 'bold',
+                  color: theme.palette.primary.main
+                }
+              }}
             />
             
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-              <Button onClick={handleCloseCalendar}>Cancelar</Button>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, gap: 1 }}>
+              <Button 
+                onClick={handleCloseCalendar}
+                variant="outlined"
+                color="inherit"
+                sx={{ 
+                  borderRadius: 1.5,
+                  textTransform: 'none'
+                }}
+              >
+                Cancelar
+              </Button>
+              
               <Button 
                 variant="contained" 
                 onClick={handleApplyDate}
-                sx={{ ml: 2 }}
+                sx={{ 
+                  borderRadius: 1.5,
+                  textTransform: 'none',
+                  fontWeight: 600
+                }}
               >
                 Aplicar
               </Button>

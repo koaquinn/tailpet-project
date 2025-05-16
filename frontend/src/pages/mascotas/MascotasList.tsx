@@ -276,58 +276,187 @@ const MascotasList = () => {
           </Grid>
 
           <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
-              <InputLabel>Cliente</InputLabel>
-              <Select
-                name="cliente"
-                value={filters.cliente}
-                label="Cliente"
-                onChange={handleFilterChange}
-              >
-                <MenuItem value="">Todos</MenuItem>
-                {clientes.map((c) => (
-                  <MenuItem key={c.id} value={c.id?.toString() || ''}>
-                    {formatFullName(c.nombre, c.apellido)}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
+  <FormControl fullWidth>
+    <InputLabel 
+      id="cliente-filter-label"
+      shrink={!!filters.cliente}
+      sx={{
+        backgroundColor: 'background.paper',
+        px: 1,
+        transform: 'translate(14px, -9px) scale(0.75)',
+      }}
+    >
+      Cliente
+    </InputLabel>
+    <Select
+      labelId="cliente-filter-label"
+      name="cliente"
+      value={filters.cliente}
+      label="Cliente"
+      onChange={handleFilterChange}
+      displayEmpty
+      renderValue={(selected) => {
+        if (!selected) {
+          return <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>Todos los clientes</span>;
+        }
+        const cliente = clientes.find(c => c.id?.toString() === selected);
+        return cliente ? formatFullName(cliente.nombre, cliente.apellido) : selected;
+      }}
+      MenuProps={{
+        PaperProps: {
+          sx: {
+            maxHeight: 400,
+            minWidth: 300,
+            mt: 1,
+            '& .MuiMenuItem-root': {
+              whiteSpace: 'normal',
+              minHeight: '48px',
+              py: 1.5,
+            },
+          },
+        },
+        anchorOrigin: {
+          vertical: 'bottom',
+          horizontal: 'left',
+        },
+        transformOrigin: {
+          vertical: 'top',
+          horizontal: 'left',
+        },
+        disablePortal: true,
+      }}
+      sx={{
+        '& .MuiSelect-select': {
+          display: 'flex',
+          alignItems: 'center',
+          minHeight: '1.4375em',
+          padding: '16.5px 14px',
+        },
+      }}
+    >
+      <MenuItem value="">
+        <em>Todos los clientes</em>
+      </MenuItem>
+      {clientes.map((cliente) => (
+        <MenuItem key={cliente.id} value={cliente.id?.toString() || ''}>
+          <Box>
+            <Typography>{formatFullName(cliente.nombre, cliente.apellido)}</Typography>
+            {cliente.rut && (
+              <Typography variant="body2" color="text.secondary">
+                {cliente.rut}
+              </Typography>
+            )}
+          </Box>
+        </MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+</Grid>
 
           <Grid item xs={12} md={2}>
-            <FormControl fullWidth>
-              <InputLabel>Especie</InputLabel>
-              <Select
-                name="especie"
-                value={filters.especie}
-                label="Especie"
-                onChange={handleFilterChange}
-              >
-                <MenuItem value="">Todas</MenuItem>
-                {especies.map((e) => (
-                  <MenuItem key={e.id} value={e.id?.toString() || ''}>
-                    {e.nombre}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
+  <FormControl fullWidth>
+    <InputLabel 
+      id="especie-filter-label"
+      shrink={!!filters.especie}
+      sx={{
+        backgroundColor: 'background.paper',
+        px: 1,
+        transform: 'translate(14px, -9px) scale(0.75)',
+      }}
+    >
+      Especie
+    </InputLabel>
+    <Select
+      labelId="especie-filter-label"
+      name="especie"
+      value={filters.especie}
+      label="Especie"
+      onChange={handleFilterChange}
+      displayEmpty
+      renderValue={(selected) => {
+        if (!selected) {
+          return <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>Todas las especies</span>;
+        }
+        const especie = especies.find(e => e.id?.toString() === selected);
+        return especie?.nombre || selected;
+      }}
+      MenuProps={{
+        PaperProps: {
+          sx: {
+            maxHeight: 300,
+            minWidth: 250,
+            mt: 1,
+          },
+        },
+      }}
+      sx={{
+        '& .MuiSelect-select': {
+          padding: '16.5px 14px',
+        },
+      }}
+    >
+      <MenuItem value="">
+        <em>Todas las especies</em>
+      </MenuItem>
+      {especies.map((especie) => (
+        <MenuItem key={especie.id} value={especie.id?.toString() || ''}>
+          {especie.nombre}
+        </MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+</Grid>
           
           <Grid item xs={12} md={2}>
-            <FormControl fullWidth>
-              <InputLabel>Estado</InputLabel>
-              <Select
-                name="activos"
-                value={filters.activos}
-                label="Estado"
-                onChange={handleFilterChange}
-              >
-                <MenuItem value="true">Activos</MenuItem>
-                <MenuItem value="false">Inactivos</MenuItem>
-                <MenuItem value="">Todos</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
+  <FormControl fullWidth>
+    <InputLabel 
+      id="estado-filter-label"
+      shrink={filters.activos !== ''} // Cambio importante aquí
+      sx={{
+        backgroundColor: 'background.paper',
+        px: 1,
+        transform: 'translate(14px, -9px) scale(0.75)',
+      }}
+    >
+      Estado
+    </InputLabel>
+    <Select
+      labelId="estado-filter-label"
+      name="activos"
+      value={filters.activos}
+      label="Estado"
+      onChange={handleFilterChange}
+      displayEmpty // Añadido para manejar mejor el estado vacío
+      renderValue={(selected) => {
+        if (selected === 'true') return 'Activos';
+        if (selected === 'false') return 'Inactivos';
+        return <span style={{ color: 'rgba(0, 0, 0, 0.6)' }}>Todos</span>; // Estilo para "Todos"
+      }}
+      MenuProps={{
+        PaperProps: {
+          sx: {
+            maxHeight: 300,
+            minWidth: 200,
+            mt: 1,
+          },
+        },
+      }}
+      sx={{
+        '& .MuiSelect-select': {
+          padding: '16.5px 14px',
+          display: 'flex',
+          alignItems: 'center',
+        },
+      }}
+    >
+      <MenuItem value="true">Activos</MenuItem>
+      <MenuItem value="false">Inactivos</MenuItem>
+      <MenuItem value="">
+        <em>Todos</em> {/* Usamos <em> para el estilo de placeholder */}
+      </MenuItem>
+    </Select>
+  </FormControl>
+</Grid>
 
           <Grid item xs={12} md={2}>
             <Button 

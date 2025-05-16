@@ -15,7 +15,6 @@ import {
   IconButton
 } from '@mui/material';
 import { Visibility, VisibilityOff, AccountCircle, VpnKey } from '@mui/icons-material';
-import './PaginaLogin.css';
 
 interface LocationState {
   from?: {
@@ -78,12 +77,45 @@ const LoginPage: React.FC = () => {
   };
   
   return (
-    <div className="login-container">
-      <Paper className="login-card" elevation={3}>
-        <Typography variant="h4" className="login-title">
+    <Box
+      sx={{
+        minHeight: '100vh',
+        width: '100vw',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 2,
+        boxSizing: 'border-box',
+        background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)'
+      }}
+    >
+      <Paper 
+        elevation={3}
+        sx={{
+          p: { xs: 3, sm: 4 },
+          width: '100%',
+          maxWidth: 450,
+          borderRadius: 3,
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+        }}
+      >
+        <Typography 
+          variant="h4" 
+          align="center"
+          sx={{ 
+            fontWeight: 700,
+            mb: 0.5,
+          }}
+        >
           TailPet
         </Typography>
-        <Typography variant="h6" className="login-subtitle">
+        
+        <Typography 
+          variant="h6" 
+          align="center"
+          color="text.secondary"
+          sx={{ mb: 3 }}
+        >
           Sistema de Gestión Veterinaria
         </Typography>
 
@@ -93,7 +125,7 @@ const LoginPage: React.FC = () => {
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit} className="login-form">
+        <form onSubmit={handleSubmit}>
           <TextField
             fullWidth
             id="credential"
@@ -112,7 +144,15 @@ const LoginPage: React.FC = () => {
                 </InputAdornment>
               ),
             }}
-            className="login-input"
+            sx={{
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                bgcolor: 'background.paper',
+                '&:hover': {
+                  bgcolor: 'background.paper',
+                }
+              }
+            }}
           />
 
           <TextField
@@ -144,7 +184,15 @@ const LoginPage: React.FC = () => {
                 </InputAdornment>
               ),
             }}
-            className="login-input"
+            sx={{
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                bgcolor: 'background.paper',
+                '&:hover': {
+                  bgcolor: 'background.paper',
+                }
+              }
+            }}
           />
 
           <Button
@@ -153,8 +201,11 @@ const LoginPage: React.FC = () => {
             variant="contained"
             color="primary"
             disabled={isLoading}
-            className="login-button"
-            sx={{ mt: 3, mb: 2 }}
+            sx={{ 
+              mt: 3,
+              mb: 2,
+              py: 1.5
+            }}
           >
             {isLoading ? (
               <>
@@ -169,7 +220,7 @@ const LoginPage: React.FC = () => {
           © TailPet {new Date().getFullYear()}
         </Typography>
       </Paper>
-    </div>
+    </Box>
   );
 };
 
