@@ -54,7 +54,6 @@ import {
 } from '@mui/icons-material';
 
 import consultaApi from '../../api/consultaApi';
-import { ConsultaEnCurso as ConsultaEnCursoApiType } from '../../api/consultaApi';
 import citasApi from '../../api/citasApi';
 import { getMascota } from '../../api/mascotaApi';
 import inventarioApi from '../../api/inventarioApi';
@@ -71,57 +70,74 @@ interface MascotaDetalle {
   nombre: string;
   especie_nombre?: string;
   raza_nombre?: string;
-  // edad_anos?: number; // Se usará fecha_nacimiento para calcular la edad
-  // edad_meses?: number; // Se usará fecha_nacimiento para calcular la edad
   sexo: 'M' | 'H' | string;
   activo: boolean;
-  fecha_nacimiento?: string | null; // Aseguramos que esté presente para calculateAgeImproved
+  fecha_nacimiento?: string | null;
 }
 
-interface ConsultaEnCurso extends ConsultaEnCursoApiType {
+// MODIFICADO: Asegúrate que esta interfaz coincida con la de tu consultaApi.ts o impórtala directamente.
+// Asumimos que el backend y consultaApi.ts usan EN_CURSO (con guion bajo) internamente.
+interface ConsultaEnCurso {
   id: number;
-  estado: 'PROGRAMADA' | 'EN_CURSO' | 'COMPLETADA' | string;
+  estado: 'PROGRAMADA' | 'EN_CURSO' | 'COMPLETADA' | 'CANCELADA' | string; // MODIFICADO para usar EN_CURSO
   fecha: string;
   tipo?: string;
   motivo?: string;
   veterinario_nombre?: string;
-  mascota: number;
+  mascota: number; // ID de la mascota
   diagnostico?: string | null;
   observaciones?: string | null;
   peso_actual?: number | string | null;
   temperatura?: number | string | null;
   sintomas?: string | null;
   tratamiento?: string | null;
+  // Si la API devuelve estos campos en la consulta principal:
+  mascota_nombre?: string;
+  cliente_nombre?: string;
+  veterinario?: number; // ID del veterinario
+  medicamentos?: Array<{ // Estructura según tu consultaApi.ts
+    id: number;
+    nombre: string;
+    dosis: string;
+    frecuencia: string;
+    duracion: string;
+  }>;
 }
+
 
 const CONSULTA_STEPS = ['Triage', 'Diagnóstico', 'Tratamiento', 'Finalización'];
 
+// MODIFICADO: getEstadoColor ahora espera 'EN_CURSO' (con guion bajo)
 const getEstadoColor = (estado: string): 'primary' | 'warning' | 'success' | 'error' | 'default' => {
   switch (estado) {
     case 'PROGRAMADA': return 'primary';
-    case 'EN_CURSO': return 'warning';
+    case 'EN_CURSO': return 'warning'; // Coincide con el valor interno/API
     case 'COMPLETADA': return 'success';
-    default: return 'error';
+    case 'CANCELADA': return 'error'; // Asumiendo que CANCELADA es un estado posible
+    default: return 'default'; // O 'error' si prefieres
   }
 };
 
-// Función mejorada para calcular la edad correctamente con años y meses (de ClienteMascota.tsx)
+// NUEVO: Función para formatear la etiqueta del estado para visualización
+const formatEstadoDisplay = (estado: string): string => {
+  if (estado === 'EN_CURSO') {
+    return 'EN CURSO'; // Muestra con espacio
+  }
+  return estado.replace(/_/g, ' '); // Reemplazo genérico
+};
+
+
 const calculateAgeImproved = (fechaNacimiento: string | null | undefined): string => {
   if (!fechaNacimiento) return 'N/A';
-  
   const birthDate = new Date(fechaNacimiento);
   const today = new Date();
-  
   if (isNaN(birthDate.getTime())) return 'Fecha inválida';
-  
   let years = today.getFullYear() - birthDate.getFullYear();
   let months = today.getMonth() - birthDate.getMonth();
-  
   if (months < 0 || (months === 0 && today.getDate() < birthDate.getDate())) {
     years--;
     months += 12;
   }
-  
   if (years > 0) {
     if (months > 0) {
       return `${years} ${years === 1 ? 'año' : 'años'} y ${months} ${months === 1 ? 'mes' : 'meses'}`;
@@ -132,7 +148,7 @@ const calculateAgeImproved = (fechaNacimiento: string | null | undefined): strin
       return `${months} ${months === 1 ? 'mes' : 'meses'}`;
     }
     const days = Math.floor((today.getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24));
-    if (days < 0) return 'Fecha futura'; // Control para fechas de nacimiento futuras
+    if (days < 0) return 'Fecha futura';
     return `${days} ${days === 1 ? 'día' : 'días'}`;
   }
 };
@@ -172,8 +188,8 @@ const ConsultaPanel: React.FC = () => {
   });
 
   const [medicamentos, setMedicamentos] = useState<Array<{
-    id: number; 
-    medicamento: number; 
+    id: number; // ID temporal para la UI, o el ID real si se carga
+    medicamento: number; // ID del medicamento del inventario
     medicamento_nombre?: string;
     dosis: string;
     frecuencia: string;
@@ -211,42 +227,46 @@ const ConsultaPanel: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        const consultaData = await citasApi.getConsulta(parseInt(id)) as ConsultaEnCurso;
-        setConsulta(consultaData);
-
-        let currentConsultaData = consultaData;
+        // Usar consultaApi.getConsulta que ahora espera 'EN_CURSO' del backend
+        let consultaData = await consultaApi.getConsulta(parseInt(id)); 
 
         if (consultaData.estado === 'PROGRAMADA') {
-          // Iniciar consulta y obtener datos actualizados
-           await consultaApi.iniciarConsulta(parseInt(id));
-           // Es buena práctica re-fetchear o asegurarse que el estado 'EN_CURSO' se refleje.
-           // Para simplificar, actualizamos localmente, pero un refetch sería más robusto.
-           currentConsultaData = { ...consultaData, estado: 'EN_CURSO' };
-           setConsulta(currentConsultaData); // Actualiza el estado local
+          const consultaIniciada = await consultaApi.iniciarConsulta(parseInt(id));
+          consultaData = consultaIniciada; // Usar la data retornada por iniciarConsulta
+          showNotification('Consulta iniciada.', 'info');
         }
+        
+        setConsulta(consultaData);
 
-        if (currentConsultaData.mascota) {
-          const mascotaData = await getMascota(currentConsultaData.mascota) as MascotaDetalle;
+        if (consultaData.mascota) { // mascota es el ID
+          const mascotaData = await getMascota(consultaData.mascota) as MascotaDetalle;
           setMascota(mascotaData);
         }
 
         setFormData({
-          diagnostico: currentConsultaData.diagnostico || '',
-          observaciones: currentConsultaData.observaciones || '',
-          peso_actual: currentConsultaData.peso_actual?.toString() || '',
-          temperatura: currentConsultaData.temperatura?.toString() || '',
-          sintomas: currentConsultaData.sintomas || '',
-          tratamiento: currentConsultaData.tratamiento || '',
+          diagnostico: consultaData.diagnostico || '',
+          observaciones: consultaData.observaciones || '',
+          peso_actual: consultaData.peso_actual?.toString() || '',
+          temperatura: consultaData.temperatura?.toString() || '',
+          sintomas: consultaData.sintomas || '',
+          tratamiento: consultaData.tratamiento || '',
         });
         
-        // Considerar cargar medicamentos si la consulta ya está en curso y tiene receta.
-        // Ejemplo: const recetaActual = await consultaApi.getRecetaPorConsulta(parseInt(id));
-        // if (recetaActual && recetaActual.length > 0) {
-        //   setMedicamentos(recetaActual.map(med => ({...mapApiToLocalMedStructure(med)})));
-        // }
+        // Cargar medicamentos si ya existen para esta consulta (ej. si se retoma una consulta guardada)
+        if (consultaData.medicamentos && consultaData.medicamentos.length > 0) {
+            setMedicamentos(consultaData.medicamentos.map(medAPI => ({
+                id: medAPI.id, // Asumiendo que la API devuelve un ID para el medicamento en la receta
+                medicamento: medAPI.id, // O si tienes un campo 'medicamento_id' en medAPI
+                medicamento_nombre: medAPI.nombre,
+                dosis: medAPI.dosis,
+                frecuencia: medAPI.frecuencia,
+                duracion: medAPI.duracion,
+                cantidad: 1, // Ajustar si la API devuelve cantidad
+            })));
+        }
 
 
-        const medicamentosResponse = await inventarioApi.getMedicamentos({ stock_minimo: 1 }); // Asumiendo que quieres medicamentos con stock
+        const medicamentosResponse = await inventarioApi.getMedicamentos({ stock_minimo: 1 });
         setMedicamentosDisponibles(medicamentosResponse.results || []);
 
       } catch (err) {
@@ -303,7 +323,7 @@ const ConsultaPanel: React.FC = () => {
   };
 
   const handleAddMedicamento = () => {
-    if (!medicamentoSeleccionado || 
+    if (!medicamentoSeleccionado ||
         !nuevoDatosMedicamento.dosis.trim() ||
         !nuevoDatosMedicamento.frecuencia.trim() ||
         !nuevoDatosMedicamento.duracion.trim() ||
@@ -314,8 +334,8 @@ const ConsultaPanel: React.FC = () => {
     }
 
     const nuevoMedicamento = {
-      id: Date.now(), 
-      medicamento: medicamentoSeleccionado.id,
+      id: Date.now(), // ID temporal para la UI
+      medicamento: medicamentoSeleccionado.id, // ID del medicamento del inventario
       medicamento_nombre: medicamentoSeleccionado.nombre,
       ...nuevoDatosMedicamento,
     };
@@ -338,16 +358,24 @@ const ConsultaPanel: React.FC = () => {
 
     setSaving(true);
     try {
-      const consultaDataToSave = {
+      const consultaDataToSave = { // Solo los campos que actualiza citasApi.updateConsulta
         diagnostico: formData.diagnostico,
         observaciones: formData.observaciones,
         sintomas: formData.sintomas,
         tratamiento: formData.tratamiento,
         temperatura: formData.temperatura ? parseFloat(formData.temperatura) : null,
         peso_actual: formData.peso_actual ? parseFloat(formData.peso_actual) : null,
+        // El estado no se envía aquí, se maneja por iniciar/completar
       };
+      // Asumiendo que updateConsulta no cambia el estado, solo guarda datos parciales.
+      // Si tu API espera que 'citasApi.updateConsulta' también actualice el estado, debes pasarlo.
+      await citasApi.updateConsulta(parseInt(id), consultaDataToSave); 
+      
+      // Sincronizar medicamentos si es necesario o si hay un endpoint específico para "guardar borrador de receta"
+      // if (medicamentos.length > 0) {
+      //   // Lógica para guardar borrador de medicamentos si existe tal endpoint
+      // }
 
-      await citasApi.updateConsulta(parseInt(id), consultaDataToSave);
       showNotification('Progreso de la consulta guardado exitosamente.', 'success');
     } catch (err) {
       console.error('Error al guardar la consulta:', err);
@@ -362,7 +390,7 @@ const ConsultaPanel: React.FC = () => {
 
     if (!formData.diagnostico.trim()) {
       showNotification('Debe ingresar un diagnóstico antes de completar la consulta.', 'error');
-      setActiveStep(1); 
+      setActiveStep(1);
       return;
     }
 
@@ -375,13 +403,14 @@ const ConsultaPanel: React.FC = () => {
         tratamiento: formData.tratamiento,
         temperatura: formData.temperatura ? parseFloat(formData.temperatura) : null,
         peso_actual: formData.peso_actual ? parseFloat(formData.peso_actual) : null,
+        
       };
 
       await consultaApi.completarConsulta(parseInt(id), consultaCompletaData);
 
       if (medicamentos.length > 0) {
         const medicamentosDataApi = medicamentos.map(med => ({
-          medicamento: med.medicamento,
+          medicamento: med.medicamento, // ID del medicamento de inventario
           dosis: med.dosis,
           frecuencia: med.frecuencia,
           duracion: med.duracion,
@@ -504,10 +533,10 @@ const ConsultaPanel: React.FC = () => {
             sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', color: theme.palette.text.primary }}
           >
             <HospitalIcon sx={{ mr: 1.5, color: theme.palette.secondary.main, fontSize: 32 }} />
-            Consulta en curso
+            Panel de Consulta
             <Chip
-              label={consulta.estado}
-              color={getEstadoColor(consulta.estado)}
+              label={formatEstadoDisplay(consulta.estado)} // MODIFICADO: Usa la función de formateo
+              color={getEstadoColor(consulta.estado)} // getEstadoColor usa el valor interno (ej. 'EN_CURSO')
               size="small"
               sx={{ ml: 2, fontWeight: 600, px: 1, borderRadius: 1.5 }}
             />
@@ -524,184 +553,201 @@ const ConsultaPanel: React.FC = () => {
         </Box>
       </Box>
 
-{/* --- INICIO: Información del paciente y la consulta (dimensiones idénticas) --- */}
-<Paper
-  elevation={2}
-  sx={{
-    p: { xs: 2, md: 3 },
-    mb: 3,
-    borderRadius: 3,
-    boxShadow: theme.shadows[3],
-  }}
->
-  {/* Grid container con altura fija y distribución equitativa */}
-  <Grid
-    container
-    spacing={3}
+{/* --- INICIO: Información del paciente y la consulta --- */}
+<Box sx={{width: '100%'}}>
+  <Paper
+    elevation={2}
     sx={{
-      minHeight: { xs: 'auto', md: '400px' }, // Altura fija para pantallas medianas y grandes
+      width: '100%',
+      p: { xs: 2, md: 3 },
+      mb: 3,
+      borderRadius: 3,
+      boxShadow: theme.shadows[2],
     }}
   >
-    {/* Card de Información del Paciente - exactamente 50% del ancho en md */}
-    <Grid
-      item
-      xs={12}
-      md={6}
-      sx={{
-        display: 'flex',
-        height: { xs: 'auto', md: '100%' }, // Altura completa en md
-        flexDirection: 'column',
-      }}
-    >
-      <Card
-        variant="outlined"
-        sx={{
-          width: '100%', // Ancho completo del Grid item
-          display: 'flex',
-          flexDirection: 'column',
-          borderRadius: 2.5,
-          borderColor: alpha(theme.palette.primary.main, 0.4),
-          boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.08)}`,
-          transition: 'transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out',
-          '&:hover': {
-            transform: 'translateY(-4px)',
-            boxShadow: `0 8px 20px ${alpha(theme.palette.primary.main, 0.15)}`,
-          },
-          height: '100%',
-        }}
-      >
-        <CardContent sx={{
-          p: { xs: 2, md: 3 },
-          flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
-        }}>
-          <Box sx={{ textAlign: 'center', mb: 2.5 }}>
-            <Typography variant="h6" sx={{ color: theme.palette.primary.main, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <PetsIcon sx={{ mr: 1.5, fontSize: '2rem' }} />
-              Información del Paciente
-            </Typography>
-          </Box>
-          <Divider sx={{ mb: 2.5, borderColor: alpha(theme.palette.primary.main, 0.3) }} />
-          <Grid container spacing={1.5} sx={{ flexGrow: 1 }}>
-            {[
-              { label: 'Nombre', value: mascota.nombre },
-              { label: 'Especie', value: mascota.especie_nombre || 'No registrada' },
-              { label: 'Raza', value: mascota.raza_nombre || 'No registrada' },
-              { label: 'Edad', value: calculateAgeImproved(mascota.fecha_nacimiento) },
-              { label: 'Sexo', value: mascota.sexo === 'M' ? 'Macho' : mascota.sexo === 'H' ? 'Hembra' : 'No registrado' },
-              { label: 'Estado', value: <Chip size="small" label={mascota.activo ? "Activo" : "Inactivo"} color={mascota.activo ? "success" : "error"} sx={{ borderRadius: '16px', fontWeight: 500, height: 'auto', '& .MuiChip-label': { py: 0.3, px: 1.2 } }} /> },
-            ].map((item, index) => (
-              <Grid item xs={12} sm={6} key={index}>
-                <Box sx={{ py: 0.5, px: 0.5 }}>
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.3, mb: 0.3, fontWeight: 500, fontSize: '0.78rem' }}>
-                    {item.label.toUpperCase()}
+    <Grid container spacing={3} sx={{ width: '100%', m: 0}}>
+      {/* Card de Información del Paciente */}
+      <Grid item xs={12} md={6} sx={{width: '100%'}}>
+        <Card
+          variant="outlined"
+          sx={{
+            width: '100%',
+            height: '100%',
+            borderRadius: 2.5,
+            borderColor: alpha(theme.palette.primary.main, 0.3),
+            transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+            '&:hover': {
+              transform: 'translateY(-3px)',
+              boxShadow: `0 8px 16px 0 ${alpha(theme.palette.primary.main, 0.15)}`,
+            },
+          }}
+        >
+          <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
+            <Box sx={{ textAlign: 'center', mb: 2 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  color: theme.palette.primary.main,
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <PetsIcon sx={{ mr: 1, fontSize: '1.8rem' }} />
+                Información del Paciente
+              </Typography>
+            </Box>
+            <Divider sx={{ mb: 2.5, borderColor: alpha(theme.palette.primary.main, 0.2) }} />
+
+            <Grid container spacing={2} justifyContent={'center'}>
+              {[
+                { label: 'Nombre', value: mascota.nombre },
+                { label: 'Especie', value: mascota.especie_nombre || 'No registrada' },
+                { label: 'Raza', value: mascota.raza_nombre || 'No registrada' },
+                { label: 'Edad', value: calculateAgeImproved(mascota.fecha_nacimiento)},
+                { label: 'Sexo', value: mascota.sexo === 'M' ? 'Macho' : mascota.sexo === 'H' ? 'Hembra' : 'No registrado' },
+                { label: 'Estado Mascota', value: <Chip
+                  size="small"
+                  label={mascota.activo ? "Activo" : "Inactivo"}
+                  color={mascota.activo ? "success" : "error"}
+                  sx={{
+                    borderRadius: '16px',
+                    fontWeight: 500,
+                    height: 'auto',
+                    '& .MuiChip-label': {py: 0.3, px: 1}
+                  }}
+                /> },
+              ].map((item, index) => (
+                <Grid item xs={6} key={index}>
+                  <Box sx={{ p: 1 }} textAlign={'center'}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      display="block"
+                      sx={{
+                        lineHeight: 1.2,
+                        mb: 0.5,
+                        fontWeight: 500
+                      }}
+                    >
+                      {item.label}
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      sx={{
+                        lineHeight: 1.4,
+                        minHeight: '24px',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                    >
+                      {item.value}
+                    </Typography>
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      {/* Card de Detalles de la Consulta */}
+      <Grid item xs={12} md={6} sx={{width: '100%'}}>
+        <Card
+          variant="outlined"
+          sx={{
+            height: '100%',
+            width: '100%',
+            borderRadius: 2.5,
+            borderColor: alpha(theme.palette.secondary.main, 0.3),
+            transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+            '&:hover': {
+              transform: 'translateY(-3px)',
+              boxShadow: `0 8px 16px 0 ${alpha(theme.palette.secondary.main, 0.15)}`,
+            },
+          }}
+        >
+          <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
+            <Box sx={{ textAlign: 'center', mb: 2 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  color: theme.palette.secondary.main,
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <EventIcon sx={{ mr: 1, fontSize: '1.8rem' }} />
+                Detalles de la Consulta
+              </Typography>
+            </Box>
+            <Divider sx={{ mb: 2.5, borderColor: alpha(theme.palette.secondary.main, 0.2) }} />
+
+            <Grid container spacing={2} justifyContent={'center'}>
+              <Grid item xs={6}>
+                <Box sx={{ p: 1 }} textAlign={'center'}>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2, mb: 0.5, fontWeight: 500 }}>
+                    Fecha y Hora
                   </Typography>
-                  <Typography variant="body1" sx={{ lineHeight: 1.5, display: 'flex', alignItems: 'center', fontWeight: 500 }}>
-                    {item.value}
+                  <Typography variant="body1" sx={{ lineHeight: 1.4 }}>
+                    {new Date(consulta.fecha).toLocaleString('es-CL', {
+                      day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                    })}
                   </Typography>
                 </Box>
               </Grid>
-            ))}
-          </Grid>
-        </CardContent>
-      </Card>
-    </Grid>
-
-    {/* Card de Detalles de la Consulta - exactamente 50% del ancho en md */}
-    <Grid
-      item
-      xs={12}
-      md={6}
-      sx={{
-        display: 'flex',
-        height: { xs: 'auto', md: '100%' }, // Altura completa en md
-        flexDirection: 'column',
-      }}
-    >
-      <Card
-        variant="outlined"
-        sx={{
-          width: '100%', // Ancho completo del Grid item
-          display: 'flex',
-          flexDirection: 'column',
-          borderRadius: 2.5,
-          borderColor: alpha(theme.palette.secondary.main, 0.4),
-          boxShadow: `0 4px 12px ${alpha(theme.palette.secondary.main, 0.08)}`,
-          transition: 'transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out',
-          '&:hover': {
-            transform: 'translateY(-4px)',
-            boxShadow: `0 8px 20px ${alpha(theme.palette.secondary.main, 0.15)}`,
-          },
-          height: '100%',
-        }}
-      >
-        <CardContent sx={{
-          p: { xs: 2, md: 3 },
-          flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
-        }}>
-          <Box sx={{ textAlign: 'center', mb: 2.5 }}>
-            <Typography variant="h6" sx={{ color: theme.palette.secondary.main, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <EventIcon sx={{ mr: 1.5, fontSize: '2rem' }} />
-              Detalles de la Consulta
-            </Typography>
-          </Box>
-          <Divider sx={{ mb: 2.5, borderColor: alpha(theme.palette.secondary.main, 0.3) }} />
-          <Grid container spacing={1.5} sx={{ flexGrow: 1 }}>
-            <Grid item xs={12} sm={6}>
-              <Box sx={{ py: 0.5, px: 0.5 }}>
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.3, mb: 0.3, fontWeight: 500, fontSize: '0.78rem' }}>FECHA Y HORA</Typography>
-                <Typography variant="body1" sx={{ lineHeight: 1.5, fontWeight: 500 }}>
-                  {new Date(consulta.fecha).toLocaleString('es-CL', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Box sx={{ py: 0.5, px: 0.5 }}>
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.3, mb: 0.3, fontWeight: 500, fontSize: '0.78rem' }}>TIPO DE CONSULTA</Typography>
-                <Typography variant="body1" sx={{ lineHeight: 1.5, fontWeight: 500 }}>{consulta.tipo || 'No especificado'}</Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sx={{ mt: 1 }}>
-              <Box sx={{ py: 0.5, px: 0.5 }}>
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.3, mb: 0.5, fontWeight: 500, fontSize: '0.78rem' }}>MOTIVO DE LA CONSULTA</Typography>
-                <Paper
-                  variant="elevation"
-                  elevation={0}
-                  sx={{
-                    p: 1.5,
-                    bgcolor: alpha(theme.palette.grey[100], 0.9),
-                    borderRadius: 1.5,
-                    // Establecer altura máxima con scroll si el contenido es largo
-                    maxHeight: '120px',
-                    overflow: 'auto'
-                  }}
-                >
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, color: theme.palette.text.primary }}>
-                    {consulta.motivo || 'No especificado'}
+              <Grid item xs={6}>
+                <Box sx={{ p: 1 }} textAlign={'center'}>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2, mb: 0.5, fontWeight: 500 }}>
+                    Tipo de Consulta
                   </Typography>
-                </Paper>
-              </Box>
+                  <Typography variant="body1" sx={{ lineHeight: 1.4 }}>
+                    {consulta.tipo || 'No especificado'}
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12}>
+                <Box sx={{ p: 1 }} >
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2, mb: 0.5, fontWeight: 500 }}>
+                    Motivo de la Consulta
+                  </Typography>
+                  <Paper
+                    variant="outlined"
+                    sx={{
+                      p: 1.5,
+                      bgcolor: alpha(theme.palette.grey[500], 0.04),
+                      borderRadius: 1.5,
+                      borderColor: alpha(theme.palette.grey[500], 0.2)
+                    }}
+                  >
+                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
+                      {consulta.motivo || 'No especificado'}
+                    </Typography>
+                  </Paper>
+                </Box>
+              </Grid>
+              <Grid item xs={12}>
+                <Box sx={{ p: 1 }} textAlign={'center'}>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.2, mb: 0.5, fontWeight: 500 }}>
+                    Veterinario Asignado
+                  </Typography>
+                  <Typography variant="body1" sx={{ lineHeight: 1.4 }}>
+                    {consulta.veterinario_nombre || (user ? `${user.first_name} ${user.last_name}` : 'No asignado')}
+                  </Typography>
+                </Box>
+              </Grid>
             </Grid>
-            {/* Este Grid item se expandirá para ocupar el espacio restante, empujando el contenido hacia abajo */}
-            <Grid item xs={12} sx={{ flexGrow: 1 }} />
-            <Grid item xs={12}>
-              <Box sx={{ py: 0.5, px: 0.5 }}>
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.3, mb: 0.3, fontWeight: 500, fontSize: '0.78rem' }}>VETERINARIO ASIGNADO</Typography>
-                <Typography variant="body1" sx={{ lineHeight: 1.5, fontWeight: 500 }}>
-                  {consulta.veterinario_nombre || (user ? `${user.first_name} ${user.last_name}` : 'No asignado')}
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </Grid>
     </Grid>
-  </Grid>
-</Paper>
+  </Paper>
+</Box>
 {/* --- FIN: Información del paciente y la consulta --- */}
+
       <Paper
         elevation={3}
         sx={{ p: 3, mb: 3, borderRadius: 2, overflow: 'hidden', boxShadow: `0 6px 24px 0 ${alpha(theme.palette.grey[500], 0.1)}, 0 3px 12px 0 ${alpha(theme.palette.grey[500], 0.08)}` }}
@@ -714,6 +760,7 @@ const ConsultaPanel: React.FC = () => {
           ))}
         </Stepper>
 
+        {/* Contenido de los Steps (sin cambios respecto a la lógica interna, solo asegúrate que el flujo de datos es correcto) */}
         <Box sx={{ mt: 2, minHeight: 320 }}>
           {activeStep === 0 && (
             <Fade in={activeStep === 0}>
@@ -727,8 +774,8 @@ const ConsultaPanel: React.FC = () => {
                       </Typography>
                     </Box>
                     <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      <TextField fullWidth label="Temperatura (°C)" name="temperatura" type="number" value={formData.temperatura} onChange={handleInputChange} InputProps={{ inputProps: { min: 35, max: 43, step: 0.1 }, startAdornment: <InputAdornment position="start">°C</InputAdornment> }} variant="outlined" size="medium" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-                      <TextField fullWidth label="Peso" name="peso_actual" type="number" value={formData.peso_actual} onChange={handleInputChange} InputProps={{ inputProps: { min: 0, step: 0.1 }, startAdornment: <InputAdornment position="start">kg</InputAdornment> }} variant="outlined" size="medium" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                      <TextField fullWidth label="Temperatura (°C)" name="temperatura" type="number" value={formData.temperatura} onChange={handleInputChange} InputProps={{ inputProps: { min: 35, max: 43, step: 0.1 }, endAdornment: <InputAdornment position="end">°C</InputAdornment> }} variant="outlined" size="medium" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                      <TextField fullWidth label="Peso" name="peso_actual" type="number" value={formData.peso_actual} onChange={handleInputChange} InputProps={{ inputProps: { min: 0, step: 0.1 }, endAdornment: <InputAdornment position="end">kg</InputAdornment> }} variant="outlined" size="medium" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
                     </Box>
                   </Card>
                 </Grid>
@@ -743,7 +790,7 @@ const ConsultaPanel: React.FC = () => {
                     <TextField fullWidth multiline rows={8} placeholder="Describa detalladamente los síntomas que presenta la mascota..." name="sintomas" value={formData.sintomas} onChange={handleInputChange} variant="outlined" size="medium" sx={{ flexGrow: 1, '& .MuiOutlinedInput-root': { borderRadius: 2, height: '100%', alignItems: 'flex-start' }, '& .MuiOutlinedInput-multiline': { padding: 2, height: '100%' } }} />
                   </Card>
                 </Grid>
-                 <Grid item xs={12} md={8} lg={6}>
+                  <Grid item xs={12} md={8} lg={6}>
                   <Alert severity="info" icon={<InfoIcon fontSize="large" />} sx={{ borderRadius: 2, alignItems: 'center', fontSize: '1rem', '& .MuiAlert-message': { py: 1.5 } }}>
                     <Typography variant="body1" sx={{ fontWeight: 500 }}>
                       Registre los valores básicos para iniciar la consulta. Puede continuar si no cuenta con todos.
@@ -769,7 +816,7 @@ const ConsultaPanel: React.FC = () => {
                   </Grid>
                   <Grid item xs={12} md={8} lg={6}>
                     <Card variant="outlined" sx={{ borderRadius: 3, p: 3, height: '100%' }}>
-                       <Typography variant="h6" gutterBottom sx={{display: 'flex', alignItems: 'center', fontWeight: 600}}>
+                        <Typography variant="h6" gutterBottom sx={{display: 'flex', alignItems: 'center', fontWeight: 600}}>
                         <InfoIcon sx={{ mr: 1, color: theme.palette.info.main }} />
                         Observaciones Adicionales
                       </Typography>
@@ -777,13 +824,13 @@ const ConsultaPanel: React.FC = () => {
                     </Card>
                   </Grid>
                 </Grid>
-                 <Box sx={{ width: '100%', mt: 3, display: 'flex', justifyContent: 'center' }}>
-                   <Grid item xs={12} md={8} lg={6}>
+                  <Box sx={{ width: '100%', mt: 3, display: 'flex', justifyContent: 'center' }}>
+                    <Grid item xs={12} md={8} lg={6}>
                     <Alert severity="warning" sx={{ borderRadius: 2, width: '100%' }}>
                         El diagnóstico es obligatorio para poder completar la consulta.
                     </Alert>
-                   </Grid>
-                </Box>
+                    </Grid>
+                  </Box>
               </Box>
             </Fade>
           )}

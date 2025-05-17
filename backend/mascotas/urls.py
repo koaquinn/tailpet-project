@@ -9,7 +9,7 @@ router.register(r'especies', EspecieViewSet)
 router.register(r'razas', RazaViewSet)
 router.register(r'mascotas', MascotaViewSet)
 router.register(r'fotos', FotoMascotaViewSet)
-router.register(r'pesos', RegistroPesoViewSet)
+router.register(r'registros-peso', RegistroPesoViewSet, basename='registropeso')
 
 urlpatterns = [
     path('', include(router.urls)),

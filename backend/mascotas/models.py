@@ -62,10 +62,10 @@ class FotoMascota(BaseModel):
         verbose_name = "Foto de Mascota"
         verbose_name_plural = "Fotos de Mascotas"
 
-class RegistroPeso(BaseModel):
+class RegistroPeso(BaseModel): # Asumo que BaseModel tiene campos como created_at, updated_at, etc.
     mascota = models.ForeignKey(Mascota, on_delete=models.CASCADE, related_name='registros_peso')
     peso = models.DecimalField(max_digits=5, decimal_places=2)
-    fecha_registro = models.DateField()
+    fecha_registro = models.DateField() # <--- ¡AQUÍ ESTÁ LA CLAVE!
     notas = models.TextField(blank=True, null=True)
     
     def __str__(self):
