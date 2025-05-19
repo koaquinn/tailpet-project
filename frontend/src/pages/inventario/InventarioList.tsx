@@ -299,24 +299,32 @@ const fetchData = async () => {
                       <TableCell align="right">${Number(med.precio_venta.toFixed(2))}</TableCell>
                       <TableCell align="center">
                         <Chip 
-                          label={med.activo ? 'Activo' : 'Inactivo'} 
-                          color={med.activo ? 'success' : 'error'} 
-                          size="small" 
+                          label={
+                            med.activo && lotes.filter(l => l.medicamento === med.id).reduce((sum, l) => sum + l.cantidad, 0) > 0
+                              ? 'Disponible'
+                              : 'No disponible'
+                          }
+                          color={
+                            med.activo && lotes.filter(l => l.medicamento === med.id).reduce((sum, l) => sum + l.cantidad, 0) > 0
+                              ? 'success'
+                              : 'error'
+                          }
+                          size="small"
                         />
                       </TableCell>
                       <TableCell align="center">
-                        {hasLowStock(med.id) ? (
+                        {
+                          lotes
+                            .filter(l => l.medicamento === med.id)
+                            .reduce((sum, l) => sum + l.cantidad, 0)
+                        }
+                        {hasLowStock(med.id) && (
                           <Chip 
                             icon={<WarningIcon />}
                             label="Stock Bajo" 
                             color="warning" 
                             size="small" 
-                          />
-                        ) : (
-                          <Chip 
-                            label="Disponible" 
-                            color="success" 
-                            size="small" 
+                            sx={{ ml: 1 }}
                           />
                         )}
                       </TableCell>
