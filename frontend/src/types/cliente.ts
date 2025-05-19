@@ -17,6 +17,7 @@ export interface DireccionCliente {
   calle: string;
   numero: string;
   departamento?: string;
+  comuna: string;
   ciudad: string;
   region: string;
   codigo_postal?: string;

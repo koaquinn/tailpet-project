@@ -1,12 +1,11 @@
 // src/pages/historial/HistorialMascota.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Container, Typography, Paper, Box, Tabs, Tab, Button, Divider, Grid,
   Chip, Avatar, CircularProgress, Alert, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, IconButton, Tooltip,
-  Dialog, DialogTitle, DialogContent, DialogActions, List,
-  Card, CardContent
+  Dialog, DialogTitle, DialogContent, DialogActions, useTheme
 } from '@mui/material';
 import { 
     Edit as EditIcon, 
@@ -20,21 +19,21 @@ import {
   ArrowBack as ArrowBackIcon,
   Add as AddIcon,
   EventNote as EventNoteIcon,
-  MonitorWeight as WeightIcon, // Para el icono de la tab de Peso
+  MonitorWeight as WeightIcon, // Icono para la tab
   Medication as MedicationIcon 
 } from '@mui/icons-material';
-import { format, parseISO, isValid } from 'date-fns';
+import { format, parseISO, isValid, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-// Importar Recharts
-import { 
-    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer 
-} from 'recharts';
+// Importar Material-UI Charts
+import { LineChart } from '@mui/x-charts/LineChart';
+// No es estrictamente necesario importar los componentes de ejes/tooltip/leyenda si se usan las props del LineChart,
+// pero se pueden importar para personalización avanzada vía slots.
 
 // APIs
 import mascotaApi, { RegistroPesoData, getMascota } from '../../api/mascotaApi';
 import historialApi from '../../api/historialApi';
-import consultaApi, { RecetaCompletaResponse } from '../../api/consultaApi'; // Asumiendo que RecetaCompletaResponse está exportada
+import consultaApi, { RecetaCompletaResponse } from '../../api/consultaApi';
 import { useAuth } from '../../context/AuthContext';
 
 interface TabPanelProps {
@@ -56,10 +55,22 @@ function a11yProps(index: number) {
   return { id: `historial-tab-${index}`, 'aria-controls': `historial-tabpanel-${index}`};
 }
 
+interface PesoChartDataPointMUI {
+    idOriginal: number;
+    xValueForChart: number; 
+    fechaOriginal: Date;   
+    peso: number;
+    notas?: string | null;
+    // Para tooltip si agrupamos por día y queremos mostrar detalles
+    registrosDelDia?: { peso: number, notas?: string | null, fechaOriginalHora: Date }[]; 
+}
+
+
 const HistorialMascota: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, hasRole } = useAuth(); 
+  const theme = useTheme();
   const canEdit = hasRole('ADMIN') || hasRole('VETERINARIO');
 
   const [tabValue, setTabValue] = useState(0);
@@ -68,7 +79,7 @@ const HistorialMascota: React.FC = () => {
 
   const [mascota, setMascota] = useState<any>(null); 
   const [historial, setHistorial] = useState<any>(null); 
-  const [consultas, setConsultas] = useState<any[]>([]); // Estas son las historial_medico.models.Consulta
+  const [consultas, setConsultas] = useState<any[]>([]);
   const [vacunaciones, setVacunaciones] = useState<any[]>([]);
   const [registrosPeso, setRegistrosPeso] = useState<RegistroPesoData[]>([]);
 
@@ -79,13 +90,13 @@ const HistorialMascota: React.FC = () => {
     fecha: string, motivo?: string, diagnostico?: string, veterinario_nombre?: string 
   } | null>(null);
 
-  const formatDate = (dateString: string | null | undefined, dateFormat: string = 'PPP') => {
-    if (!dateString) return 'No registrada';
+  const formatDate = (dateInput: string | null | undefined | Date, dateFormat: string = 'PPP') => {
+    if (!dateInput) return 'No registrada';
     try {
-      const date = parseISO(dateString);
+      const date = typeof dateInput === 'string' ? parseISO(dateInput) : dateInput;
       return isValid(date) ? format(date, dateFormat, { locale: es }) : 'Fecha inválida';
     } catch (error) { 
-      console.error("Error formateando fecha:", dateString, error);
+      console.error("Error formateando fecha:", dateInput, error);
       return 'Fecha inválida'; 
     }
   };
@@ -118,9 +129,7 @@ const HistorialMascota: React.FC = () => {
         
         setMascota(mascotaData);
         setVacunaciones(vacunacionesData?.results || vacunacionesData || []); 
-        // Asumiendo que getRegistrosPesoPorMascota puede devolver un array o un objeto con results
         setRegistrosPeso(apiRegistrosPesoData?.results || apiRegistrosPesoData || []);
-
 
         if (historialResponseData && Array.isArray(historialResponseData.results) && historialResponseData.results.length > 0) {
             const historialData = historialResponseData.results[0];
@@ -132,7 +141,6 @@ const HistorialMascota: React.FC = () => {
         } else {
             setHistorial(null);
         }
-
       } catch (err: any) {
         console.error('Error general al cargar datos:', err);
         const apiError = err?.response?.data?.detail || err?.response?.data?.error || err?.message;
@@ -149,7 +157,7 @@ const HistorialMascota: React.FC = () => {
         setError('Datos insuficientes para crear historial (mascota o veterinario no definido).');
         return;
     }
-    setLoading(true); // Para el botón
+    setLoading(true);
     try {
       const newHistorial = await historialApi.createHistorial({
         mascota: mascota.id,
@@ -195,29 +203,39 @@ const HistorialMascota: React.FC = () => {
     setIsRecetaModalOpen(false); setSelectedReceta(null); setSelectedConsultaInfo(null);
   };
 
-  const pesoChartData = registrosPeso
-    .map(rp => {
-      const fechaObj = parseISO(rp.fecha_registro);
-      return {
-        fecha: fechaObj, 
-        peso: parseFloat(rp.peso), 
-        name: isValid(fechaObj) ? format(fechaObj, 'dd MMM yy', { locale: es }) : 'Fecha Inv.', 
-      };
-    })
-    .filter(d => isValid(d.fecha) && !isNaN(d.peso)) 
-    .sort((a, b) => a.fecha.getTime() - b.fecha.getTime()); 
+  // Preparación de datos para el gráfico de peso (MUI X Charts)
+  // Usamos useMemo para evitar recálculos innecesarios
+  const pesoChartDataMUI: PesoChartDataPointMUI[] = useMemo(() => {
+    return registrosPeso
+      .map((rp, index) => {
+        const fechaObj = parseISO(rp.fecha_registro); // fecha_registro es string "YYYY-MM-DDTHH:mm:ssZ" o "YYYY-MM-DD"
+        return {
+          idOriginal: rp.id,
+          xValueForChart: index, // Un valor numérico secuencial para el eje X
+          fechaOriginal: isValid(fechaObj) ? fechaObj : new Date(0), // El objeto Date real
+          peso: parseFloat(rp.peso),
+          notas: rp.notas,
+        };
+      })
+      .filter(d => isValid(d.fechaOriginal) && d.fechaOriginal.getFullYear() > 1900 && !isNaN(d.peso)) // Filtrado más robusto
+      .sort((a, b) => a.fechaOriginal.getTime() - b.fechaOriginal.getTime()); // Ordenar por fecha real
+  }, [registrosPeso]);
 
-  const getPesoDomain = (): [number | string, number | string] => {
-    if (pesoChartData.length === 0) return ['auto', 'auto']; 
-    const pesos = pesoChartData.map(d => d.peso);
-    const minPeso = Math.min(...pesos);
-    const maxPeso = Math.max(...pesos);
-    const padding = Math.max((maxPeso - minPeso) * 0.15, 1); 
-    const domainMin = Math.max(0, Math.floor(minPeso - padding));
-    const domainMax = Math.ceil(maxPeso + padding);
-    return [domainMin, domainMax === domainMin ? domainMin + 2 : domainMax]; 
+
+  const getPesoDomainMUI = (): [number, number] | undefined => {
+      if (pesoChartDataMUI.length === 0) return undefined;
+      const pesos = pesoChartDataMUI.map(d => d.peso);
+      const minPeso = Math.min(...pesos);
+      const maxPeso = Math.max(...pesos);
+      const padding = Math.max((maxPeso - minPeso) * 0.20, 2); 
+      const domainMin = Math.max(0, Math.floor(minPeso - padding));
+      let domainMax = Math.ceil(maxPeso + padding);
+      if (domainMax <= domainMin) {
+          domainMax = domainMin + Math.max(5, Math.abs(domainMin * 0.3) || 5); 
+      }
+      return [domainMin, domainMax];
   };
-  const pesoDomain = getPesoDomain();
+  const muiPesoYAxisDomain = getPesoDomainMUI();
 
   if (loading && !mascota) { return (<Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '70vh' }}><CircularProgress size={60} /></Container>); }
   if (error && !mascota) { return (<Container maxWidth="md" sx={{mt:4}}><Alert severity="error" sx={{ mt: 2 }}>{error}<Button color="inherit" size="small" onClick={() => window.location.reload()} sx={{ ml: 2 }}>Reintentar</Button></Alert></Container>); }
@@ -270,10 +288,11 @@ const HistorialMascota: React.FC = () => {
               <Tab label="Peso" icon={<WeightIcon />} iconPosition="start" {...a11yProps(2)} sx={{textTransform: 'none', fontSize: '0.9rem', px: {xs:1.5, sm:2}}}/>
             </Tabs>
 
+            {/* Pestaña de Consultas */}
             <TabPanel value={tabValue} index={0}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, px: {xs:0, sm:1} }}>
                 <Typography variant="h5" fontWeight="500">Consultas Realizadas</Typography>
-                {canEdit && (<Button variant="contained" size="small" color="primary" startIcon={<AddIcon />} component={Link} to={`/citas/nueva?mascotaId=${mascota.id}`}>Nueva Consulta</Button>)}
+                {canEdit && (<Button variant="contained" size="small" color="primary" startIcon={<AddIcon />} component={Link} to={`/citas/nueva?mascotaId=${mascota?.id}`}>Nueva Consulta</Button>)}
               </Box>
               {consultas.length > 0 ? (
                 <TableContainer component={Paper} variant="outlined" sx={{borderRadius: 2}}>
@@ -310,10 +329,11 @@ const HistorialMascota: React.FC = () => {
               ) : (<Alert severity="info" variant="outlined" sx={{mt:1}}>No hay consultas registradas para esta mascota en su historial.</Alert>)}
             </TabPanel>
 
+            {/* Pestaña de Vacunas */}
             <TabPanel value={tabValue} index={1}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, px: {xs:0, sm:1}  }}>
                 <Typography variant="h5" fontWeight="500">Vacunaciones Aplicadas</Typography>
-                {canEdit && (<Button variant="contained" size="small" color="primary" startIcon={<AddIcon />} component={Link} to={`/mascotas/${mascota.id}/vacunas/nuevo`}>Registrar Vacuna</Button>)}
+                {canEdit && (<Button variant="contained" size="small" color="primary" startIcon={<AddIcon />} component={Link} to={`/mascotas/${mascota?.id}/vacunas/nuevo`}>Registrar Vacuna</Button>)}
               </Box>
               {vacunaciones.length > 0 ? (
                 <TableContainer component={Paper} variant="outlined" sx={{borderRadius: 2}}>
@@ -325,14 +345,14 @@ const HistorialMascota: React.FC = () => {
                         const hoy = new Date(); hoy.setHours(0,0,0,0);
                         let estadoLabel = 'Dosis única / Sin revac.'; let estadoColor: "default" | "success" | "warning" | "error" = 'default';
                         if (fechaProxima && isValid(fechaProxima)) {
-                           if (fechaProxima > hoy) { estadoLabel = 'Al día'; estadoColor = 'success'; const diffDays = (fechaProxima.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24); if (diffDays <= 30) { estadoLabel = 'Próxima Dosis Cercana'; estadoColor = 'warning';}}
-                           else { estadoLabel = 'Revacunación Pendiente'; estadoColor = 'error'; }
+                            if (fechaProxima > hoy) { estadoLabel = 'Al día'; estadoColor = 'success'; const diffDays = (fechaProxima.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24); if (diffDays <= 30) { estadoLabel = 'Próxima Dosis Cercana'; estadoColor = 'warning';}}
+                            else { estadoLabel = 'Revacunación Pendiente'; estadoColor = 'error'; }
                         }
                         return (
                           <TableRow key={vacuna.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                             <TableCell>{vacuna.vacuna_nombre || 'N/A'}</TableCell><TableCell>{formatDate(vacuna.fecha_aplicacion, 'dd/MM/yy')}</TableCell><TableCell>{formatDate(vacuna.fecha_proxima, 'dd/MM/yy')}</TableCell><TableCell>{vacuna.veterinario_nombre || 'N/A'}</TableCell>
                             <TableCell><Chip label={estadoLabel} color={estadoColor} size="small" sx={{fontSize:'0.75rem', height: 'auto', '& .MuiChip-label': { py: 0.5, px:1 }}}/></TableCell>
-                            <TableCell align="center"><Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}><Tooltip title="Ver detalles de vacuna"><IconButton size="small" color="primary" onClick={() => navigate(`/mascotas/${mascota.id}/vacunas/${vacuna.id}`)}><EventNoteIcon fontSize="small"/></IconButton></Tooltip>{canEdit && (<Tooltip title="Editar vacuna"><IconButton size="small" color="secondary" onClick={() => navigate(`/mascotas/${mascota.id}/vacunas/editar/${vacuna.id}`)}><EditIcon fontSize="small"/></IconButton></Tooltip>)}{fechaProxima && isValid(fechaProxima) && fechaProxima <= hoy && canEdit && (<Tooltip title="Registrar revacunación"><IconButton size="small" sx={{color: 'success.main'}} onClick={() => navigate(`/mascotas/${mascota.id}/vacunas/nuevo?revacunacion=${vacuna.vacuna}`)}><VaccineIcon fontSize="small"/></IconButton></Tooltip>)}</Box></TableCell>
+                            <TableCell align="center"><Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}><Tooltip title="Ver detalles de vacuna"><IconButton size="small" color="primary" onClick={() => navigate(`/mascotas/${mascota?.id}/vacunas/${vacuna.id}`)}><EventNoteIcon fontSize="small"/></IconButton></Tooltip>{canEdit && (<Tooltip title="Editar vacuna"><IconButton size="small" color="secondary" onClick={() => navigate(`/mascotas/${mascota?.id}/vacunas/editar/${vacuna.id}`)}><EditIcon fontSize="small"/></IconButton></Tooltip>)}{fechaProxima && isValid(fechaProxima) && fechaProxima <= hoy && canEdit && (<Tooltip title="Registrar revacunación"><IconButton size="small" sx={{color: 'success.main'}} onClick={() => navigate(`/mascotas/${mascota?.id}/vacunas/nuevo?revacunacion=${vacuna.vacuna}`)}><VaccineIcon fontSize="small"/></IconButton></Tooltip>)}</Box></TableCell>
                           </TableRow>
                         );
                       })}
@@ -341,111 +361,430 @@ const HistorialMascota: React.FC = () => {
                 </TableContainer>
               ) : (<Alert severity="info" variant="outlined" sx={{mt:1}}>No hay vacunas registradas para esta mascota.</Alert>)}
             </TabPanel>
+              <TabPanel value={tabValue} index={2}>
+  {loading && registrosPeso.length === 0 ? ( 
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300, py:3 }}>
+      <CircularProgress size={50} />
+    </Box>
+  ) : pesoChartDataMUI.length > 1 ? ( 
+    <Paper 
+      elevation={3}
+      sx={{ 
+        p: { xs: 2, sm: 3 }, 
+        pt: { xs: 3, sm: 4 }, 
+        borderRadius: 3, 
+        mb: 4,
+        background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+        border: `1px solid ${theme.palette.divider}`,
+        position: 'relative',
+        overflow: 'hidden',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 4,
+          background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+        }
+      }}
+    >
+      {/* Título y estadísticas resumidas */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h6" fontWeight="600" color="text.primary" gutterBottom>
+          Registro de Peso - {pesoChartDataMUI.length} mediciones
+        </Typography>
+        
+        {/* Estadísticas rápidas */}
+        <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1,
+            p: 1.5,
+            bgcolor: 'rgba(25, 118, 210, 0.05)',
+            borderRadius: 2,
+            border: `1px solid rgba(25, 118, 210, 0.1)`
+          }}>
+            <Box sx={{ 
+              width: 8, 
+              height: 8, 
+              borderRadius: '50%', 
+              bgcolor: 'primary.main' 
+            }} />
+            <Typography variant="body2" color="text.secondary">
+              Peso actual: <strong>{formatNumber(pesoChartDataMUI[pesoChartDataMUI.length - 1]?.peso, 'kg')}</strong>
+            </Typography>
+          </Box>
+          
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1,
+            p: 1.5,
+            bgcolor: 'rgba(156, 39, 176, 0.05)',
+            borderRadius: 2,
+            border: `1px solid rgba(156, 39, 176, 0.1)`
+          }}>
+            <Box sx={{ 
+              width: 8, 
+              height: 8, 
+              borderRadius: '50%', 
+              bgcolor: 'secondary.main' 
+            }} />
+            <Typography variant="body2" color="text.secondary">
+              Variación: {(() => {
+                if (pesoChartDataMUI.length < 2) return 'N/A';
+                const first = pesoChartDataMUI[0].peso;
+                const last = pesoChartDataMUI[pesoChartDataMUI.length - 1].peso;
+                const diff = last - first;
+                const sign = diff >= 0 ? '+' : '';
+                return <strong style={{ color: diff >= 0 ? theme.palette.success.main : theme.palette.error.main }}>
+                  {sign}{diff.toFixed(1)} kg
+                </strong>;
+              })()}
+            </Typography>
+          </Box>
+        </Box>
+      </Box>
 
-            <TabPanel value={tabValue} index={2}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, px: {xs:0, sm:1} }}>
-                <Typography variant="h5" fontWeight="500">Evolución del Peso</Typography>
-                {canEdit && (
-                    <Button 
-                        size="small" 
-                        variant="outlined"
-                        startIcon={<AddIcon />}
-                        onClick={() => alert("Funcionalidad para registrar peso manualmente pendiente.")} // TODO: Implementar ruta/modal
-                    >
-                        Registrar Peso
-                    </Button>
-                )}
-              </Box>
+      {/* Gráfico mejorado */}
+      <Box sx={{ 
+        height: { xs: 350, sm: 400, md: 450 }, 
+        width: '100%',
+        position: 'relative',
+        '& .MuiChartsAxis-root': {
+          '& .MuiChartsAxis-tickLabel': {
+            fontSize: '0.75rem',
+            fontWeight: 500,
+          }
+        }
+      }}>
+        <LineChart
+          dataset={pesoChartDataMUI}
+          series={[
+            { 
+              dataKey: 'peso', 
+              label: 'Peso (kg)', 
+              color: theme.palette.primary.main,
+              showMark: true,
+              curve: "catmullRom", // Línea suavizada
+            },
+          ]}
+          xAxis={[{ 
+            dataKey: 'xValueForChart',
+            scaleType: 'linear',
+            valueFormatter: (value: number) => {
+              const dataPoint = pesoChartDataMUI[value];
+              return (dataPoint && isValid(dataPoint.fechaOriginal)) 
+                ? format(dataPoint.fechaOriginal, 'dd MMM', {locale: es}) 
+                : '';
+            },
+            tickLabelStyle: { 
+              angle: -45, 
+              textAnchor: 'end', 
+              fontSize: '0.75rem', 
+              fill: theme.palette.text.secondary,
+              fontWeight: 500,
+            } as React.CSSProperties,
+            tickNumber: Math.min(Math.max(3, Math.floor(pesoChartDataMUI.length / 2)), 8),
+          }]}
+          yAxis={[{ 
+            min: muiPesoYAxisDomain?.[0],
+            max: muiPesoYAxisDomain?.[1],
+            tickLabelStyle: {
+              fontSize: '0.8rem', 
+              fill: theme.palette.text.secondary,
+              fontWeight: 500,
+            } as React.CSSProperties,
+            valueFormatter: (value) => `${value} kg`,
+            tickNumber: 6,
+          }]}
+          margin={{ top: 40, right: 30, bottom: 80, left: 60 }}
+          grid={{ 
+            vertical: false, 
+            horizontal: true, 
+            strokeDasharray: '5 5', 
+            strokeOpacity: 0.2,
+            stroke: theme.palette.divider,
+          }}
+          tooltip={{ 
+            trigger: 'item',
+          }}
+          legend={{ 
+            position: { vertical: 'top', horizontal: 'right' }, 
+            labelStyle: { 
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              fill: theme.palette.text.primary,
+            },
+            padding: { top: 0, bottom: 20, left: 0, right: 0 }
+          }}
+          sx={{
+            // Estilos para la línea principal
+            width: '100%',
+            height: '100%',
+            '& .MuiLineElement-root': { 
+              strokeWidth: 3,
+              filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.1))',
+            },
+            // Estilos para los puntos de datos
+            '& .MuiMarkElement-root': {
+              r: 5, 
+              fill: theme.palette.background.paper,
+              strokeWidth: 3, 
+              stroke: theme.palette.primary.main,
+              filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.1))',
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': { 
+                r: 7,
+                strokeWidth: 4,
+                filter: 'drop-shadow(0px 2px 6px rgba(0,0,0,0.2))',
+              },
+            },
+            // Estilos para las líneas de la cuadrícula
+            '& .MuiChartsGrid-line': {
+              strokeWidth: 1,
+            },
+            // Estilos para el área del gráfico
+            '& .MuiChartsAxis-root': {
+              '& .MuiChartsAxis-line': {
+                stroke: theme.palette.divider,
+                strokeWidth: 1.5,
+              },
+              '& .MuiChartsAxis-tick': {
+                stroke: theme.palette.divider,
+                strokeWidth: 1,
+              }
+            },
+            // Estilos para el tooltip
+            '& .MuiChartsTooltip-root': {
+              borderRadius: 2,
+              boxShadow: theme.shadows[8],
+              border: `1px solid ${theme.palette.divider}`,
+            },
+            // Animación suave al cargar
+            '& .MuiLineElement-root, & .MuiMarkElement-root': {
+              animation: 'fadeInChart 0.8s ease-out',
+            },
+            '@keyframes fadeInChart': {
+              '0%': {
+                opacity: 0,
+                transform: 'translateY(10px)',
+              },
+              '100%': {
+                opacity: 1,
+                transform: 'translateY(0px)',
+              },
+            },
+          }}
+        />
+      </Box>
 
-              {loading && registrosPeso.length === 0 ? ( 
-                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200, py:3 }}><CircularProgress /></Box>
-              ) : pesoChartData.length > 1 ? ( 
-                <Paper variant="outlined" sx={{ p: {xs:1, sm:2}, pt:{xs:2, sm:3}, borderRadius: 2, mb: 3, height: { xs: 300, sm: 350, md: 400 } }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={pesoChartData} margin={{ top: 5, right: 25, left: 0, bottom: 45 }}>
-                      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.4}/>
-                      <XAxis 
-                          dataKey="name" 
-                          angle={-40}
-                          textAnchor="end"
-                          height={70} 
-                          interval="preserveStartEnd" // Muestra la primera y última etiqueta, y algunas intermedias
-                          tick={{fontSize: '0.7rem', fill: '#555'}}
-                      />
-                      <YAxis 
-                          domain={pesoDomain} 
-                          tickFormatter={(tick) => `${tick}kg`}
-                          allowDecimals={true}
-                          tickCount={Math.min(7, Math.ceil(pesoDomain[1] - pesoDomain[0]) + 2)} // Ajustar tickCount
-                          width={50} // Ancho para las etiquetas del eje Y
-                          tick={{fontSize: '0.75rem', fill: '#555'}}
-                      />
-                      <RechartsTooltip 
-                          labelFormatter={(label) => `Fecha: ${label}`} 
-                          formatter={(value: number) => [`${value.toFixed(2)} kg`, "Peso"]}
-                          contentStyle={{borderRadius: '10px', boxShadow: '0 3px 10px rgba(0,0,0,0.15)', padding: '8px 12px', backgroundColor: 'rgba(255, 255, 255, 0.9)'}}
-                          labelStyle={{fontWeight: 'bold', color: '#1a237e', marginBottom:'4px'}}
-                          itemStyle={{color: '#1976d2'}}
-                      />
-                      <Legend verticalAlign="top" height={36} wrapperStyle={{fontSize: '0.9rem', paddingTop: '5px'}}/>
-                      <Line 
-                        type="monotone" 
-                        dataKey="peso" 
-                        strokeWidth={3} 
-                        stroke="#1976d2" 
-                        activeDot={{ r: 8, strokeWidth: 2, fill: '#bbdefb', stroke: '#1976d2' }} 
-                        name="Peso (kg)" 
-                        dot={{stroke: '#1976d2', strokeWidth: 1.5, r:4, fill: '#fff'}}
-                        />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </Paper>
-              ) : registrosPeso.length === 1 ? (
-                 <Alert severity="info" variant="outlined" sx={{mt:1}}>
-                    Se necesita al menos un registro de peso más para mostrar la evolución en el gráfico.
-                    <br/>Único registro: <strong>{formatNumber(registrosPeso[0].peso, 'kg')}</strong> el {formatDate(registrosPeso[0].fecha_registro, 'PPP')}.
-                </Alert>
-              ) : (
-                 <Alert severity="info" variant="outlined" sx={{mt:1}}>
-                  No hay registros de peso disponibles para esta mascota.
-                </Alert>
-              )}
+      {/* Información adicional en la parte inferior */}
+      <Box sx={{ 
+        mt: 3, 
+        pt: 2, 
+        borderTop: `1px solid ${theme.palette.divider}`,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 2
+      }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+          Última actualización: {formatDate(pesoChartDataMUI[pesoChartDataMUI.length - 1]?.fechaOriginal, 'PPp')}
+        </Typography>
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <WeightIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+          <Typography variant="caption" color="text.secondary">
+            {pesoChartDataMUI.length} registros en total
+          </Typography>
+        </Box>
+      </Box>
+    </Paper>
+  ) : registrosPeso.length >= 1 ? (
+    <Paper
+      elevation={2}
+      sx={{ 
+        p: 3, 
+        borderRadius: 3,
+        bgcolor: 'info.50',
+        border: `1px solid ${theme.palette.info.light}`,
+        textAlign: 'center'
+      }}
+    >
+      <WeightIcon sx={{ fontSize: 48, color: 'info.main', mb: 2 }} />
+      <Alert 
+        severity="info" 
+        variant="standard"
+        sx={{ 
+          bgcolor: 'transparent',
+          '& .MuiAlert-message': {
+            textAlign: 'center'
+          }
+        }}
+      >
+        Se necesita al menos un registro de peso en un día diferente para mostrar la evolución en el gráfico.
+        <br/>
+        <Box component="span" sx={{ 
+          display: 'inline-block', 
+          mt: 1, 
+          p: 1.5,
+          bgcolor: 'white',
+          borderRadius: 1,
+          fontWeight: 'bold',
+          fontSize: '1.1rem',
+          color: 'primary.dark'
+        }}>
+          Único registro: {formatNumber(registrosPeso[0].peso, 'kg')} 
+          <Typography component="span" variant="body2" sx={{ ml: 1, color: 'text.secondary' }}>
+            el {formatDate(registrosPeso[0].fecha_registro, 'PPP')}
+          </Typography>
+        </Box>
+      </Alert>
+    </Paper>
+  ) : (
+    <Paper
+      elevation={1}
+      sx={{ 
+        p: 4, 
+        borderRadius: 3,
+        bgcolor: 'grey.50',
+        border: `2px dashed ${theme.palette.divider}`,
+        textAlign: 'center'
+      }}
+    >
+      <WeightIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+      <Alert 
+        severity="info" 
+        variant="standard"
+        sx={{ 
+          bgcolor: 'transparent',
+          '& .MuiAlert-icon': { alignItems: 'center' }
+        }}
+      >
+        <Typography variant="h6" gutterBottom>
+          No hay registros de peso disponibles
+        </Typography>
+        <Typography variant="body2">
+          Comienza registrando el peso de la mascota para ver su evolución en el tiempo.
+        </Typography>
+      </Alert>
+    </Paper>
+  )}
 
-              {registrosPeso.length > 0 && (
+  {/* Tabla de Registros de Peso Mejorada */}
+  {registrosPeso.length > 0 && (
                 <>
-                  <Typography variant="h6" fontWeight="500" sx={{mb:1.5, mt: pesoChartData.length > 1 ? 3: 1}}>
-                    Tabla de Registros de Peso
+                  <Typography 
+                    variant="h6" 
+                    fontWeight="500" 
+                    sx={{ 
+                      mb: 2, 
+                      mt: 4,
+                      color: 'text.primary',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}
+                  >
+                    <AssignmentIcon sx={{ color: 'primary.main' }} />
+                    Historial Completo de Registros
                   </Typography>
-                  <TableContainer component={Paper} variant="outlined" sx={{borderRadius: 2}}>
+                  
+                  <TableContainer 
+                    component={Paper} 
+                    elevation={2}
+                    sx={{ 
+                      borderRadius: 3,
+                      overflow: 'hidden',
+                      border: `1px solid ${theme.palette.divider}`,
+                      '& .MuiTableHead-root': {
+                        bgcolor: 'primary.50' // Un fondo muy claro para el encabezado
+                      }
+                    }}
+                  >
                     <Table stickyHeader size="small">
-                      <TableHead><TableRow sx={{ '& th': { fontWeight: 'bold', bgcolor: 'grey.100' } }}>
-                        <TableCell>Fecha</TableCell>
-                        <TableCell align="right">Peso (kg)</TableCell>
-                        <TableCell>Notas</TableCell>
-                      </TableRow></TableHead>
+                      <TableHead>
+                        <TableRow sx={{ 
+                          '& th': { 
+                            fontWeight: 'bold', 
+                            bgcolor: 'primary.main', // Fondo más oscuro para el encabezado
+                            color: 'primary.contrastText',
+                            fontSize: '0.875rem',
+                            borderBottom: 'none'
+                          } 
+                        }}>
+                          {/* MODIFICACIÓN 1: Cambiar el encabezado de la columna */}
+                          <TableCell>Fecha</TableCell>
+                          <TableCell align="right">Peso (kg)</TableCell>
+                        </TableRow>
+                      </TableHead>
                       <TableBody>
-                        {pesoChartData.slice().reverse().map((rpData) => { 
-                            const originalRegistro = registrosPeso.find(orig => parseISO(orig.fecha_registro).getTime() === rpData.fecha.getTime());
-                            return (
-                                <TableRow key={originalRegistro?.id || rpData.name} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                    <TableCell>{rpData.name}</TableCell>
-                                    <TableCell align="right">{rpData.peso.toFixed(2)}</TableCell>
-                                    <TableCell sx={{maxWidth: 250, whiteSpace: 'normal'}}>{originalRegistro?.notas || ''}</TableCell>
+                        {registrosPeso
+                            .slice()
+                            .sort((a,b) => {
+                                const dateA = parseISO(a.fecha_registro);
+                                const dateB = parseISO(b.fecha_registro);
+                                if (!isValid(dateA) && !isValid(dateB)) return 0;
+                                if (!isValid(dateA)) return 1;
+                                if (!isValid(dateB)) return -1;
+                                return dateB.getTime() - dateA.getTime();
+                            })
+                            .map((rp, index) => (
+                                <TableRow 
+                                  key={rp.id} 
+                                  hover 
+                                  sx={{ 
+                                    '&:last-child td, &:last-child th': { border: 0 },
+                                    '&:nth-of-type(odd)': { bgcolor: 'action.hover' }, // Alternar color de filas
+                                    '&:hover': { 
+                                      bgcolor: theme.palette.action.selected, // Efecto hover más sutil
+                                    }
+                                  }}
+                                >
+                                  <TableCell sx={{ fontWeight: 500 }}>
+                                    {/* MODIFICACIÓN 2: Cambiar el formato de la fecha */}
+                                    {formatDate(rp.fecha_registro, 'PPP')}
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    <Box sx={{ 
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      bgcolor: index === 0 ? 'success.light' : 'transparent', // Resaltar el más reciente
+                                      px: 1,
+                                      py: 0.5,
+                                      borderRadius: 1,
+                                      fontWeight: 'bold',
+                                      color: index === 0 ? 'success.dark' : 'text.primary'
+                                    }}>
+                                      {parseFloat(rp.peso).toFixed(2)}
+                                      {index === 0 && (
+                                        <Typography component="span" variant="caption" sx={{ ml: 0.5, fontSize: '0.6rem', fontWeight:'normal' }}>
+                                          ACTUAL
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  </TableCell>
                                 </TableRow>
-                            );
-                        })}
+                            ))}
                       </TableBody>
                     </Table>
                   </TableContainer>
                 </>
               )}
-            </TabPanel>
+
+
+</TabPanel>
           </Paper>
         </>
       )}
 
+      {/* Modal para mostrar la receta */}
       <Dialog open={isRecetaModalOpen} onClose={handleCloseRecetaModal} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3, m:{xs:1, sm:2} } }}>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'primary.main', color: 'primary.contrastText', px:2.5, py:1.5 }}> {/* Ajustado color a primary.main */}
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'primary.main', color: 'primary.contrastText', px:2.5, py:1.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <MedicationIcon />
             <Typography variant="h6" component="div" fontWeight="medium">Detalle de Receta</Typography>
@@ -494,7 +833,7 @@ const HistorialMascota: React.FC = () => {
                     </Box>
                     {selectedReceta.observaciones_receta && selectedReceta.observaciones_receta !== "No se encontró una receta directamente asociada a esta consulta por su ID en las observaciones." && (
                         <Typography variant="caption" display="block" sx={{mt:2, pt:1.5, fontStyle: 'italic', color: 'text.secondary', borderTop: 1, borderColor:'divider'}}>
-                           Observaciones Generales de la Receta: {selectedReceta.observaciones_receta}
+                            Observaciones Generales de la Receta: {selectedReceta.observaciones_receta}
                         </Typography>
                     )}
                 </>

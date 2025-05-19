@@ -452,7 +452,7 @@ const MascotasList = () => {
       <MenuItem value="true">Activos</MenuItem>
       <MenuItem value="false">Inactivos</MenuItem>
       <MenuItem value="">
-        <em>Todos</em> {/* Usamos <em> para el estilo de placeholder */}
+        <em>Todos</em> 
       </MenuItem>
     </Select>
   </FormControl>

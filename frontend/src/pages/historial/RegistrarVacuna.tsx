@@ -402,42 +402,102 @@ const RegistrarVacuna: React.FC = () => {
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth error={!!errors.vacuna} required>
-                <InputLabel>Vacuna</InputLabel>
-                <Select
-                  name="vacuna"
-                  value={formData.vacuna ? formData.vacuna.toString() : ''}
-                  label="Vacuna"
-                  onChange={handleSelectChange}
-                  disabled={saving || !!revacunacionId || vacunas.length === 0}
-                >
-                  <MenuItem value="">Seleccionar vacuna</MenuItem>
-                  {vacunas.map((vacuna) => (
-                    <MenuItem key={vacuna.id} value={vacuna.id.toString()}>
-                      {vacuna.nombre}
-                    </MenuItem>
-                  ))}
-                </Select>
+                <InputLabel
+        id="vacuna-select-label"
+        shrink={true}
+        sx={{
+          // Opcional: igual que en MascotasList para consistencia visual con el "corte" del borde
+          // Si tu tema ya maneja bien el fondo del label encogido, esto podría no ser necesario.
+          // backgroundColor: (theme) => theme.palette.background.paper,
+          // px: 1,
+        }}
+      >
+        Vacuna
+      </InputLabel>
+      <Select
+        labelId="vacuna-select-label"
+        id="vacuna-select"
+        name="vacuna"
+        value={formData.vacuna ? formData.vacuna.toString() : ''}
+        label="Vacuna" // Sigue siendo crucial para el notch del outlined variant
+        onChange={handleSelectChange}
+        disabled={saving || !!revacunacionId || vacunas.length === 0}
+        displayEmpty
+        renderValue={(selectedValue) => {
+          if (selectedValue === "" || selectedValue === "0") {
+            return <Typography component="span" sx={{ color: 'text.secondary' }}>Seleccionar vacuna</Typography>;
+          }
+          const vacunaSeleccionada = vacunas.find(v => v.id.toString() === selectedValue);
+          return vacunaSeleccionada ? vacunaSeleccionada.nombre : `ID: ${selectedValue}`;
+        }}
+        MenuProps={{ PaperProps: { sx: { maxHeight: 260, mt: 0.5 } } }}
+        sx={{
+          '& .MuiSelect-select': {
+            minHeight: '1.4375em',
+            py: '16.5px',
+            px: '14px',
+            display: 'flex',
+            alignItems: 'center',
+          },
+        }}
+      >
+        {vacunas.map((vac) => (
+          <MenuItem key={vac.id} value={vac.id.toString()}>
+            {vac.nombre}
+          </MenuItem>
+        ))}
+      </Select>
                 {errors.vacuna && <FormHelperText>{errors.vacuna}</FormHelperText>}
               </FormControl>
             </Grid>
             
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth error={!!errors.lote} required>
-                <InputLabel>Lote de vacuna</InputLabel>
-                <Select
-                  name="lote"
-                  value={formData.lote ? formData.lote.toString() : ''}
-                  label="Lote de vacuna"
-                  onChange={handleSelectChange}
-                  disabled={saving || lotes.length === 0}
-                >
-                  <MenuItem value="">Seleccionar lote</MenuItem>
-                  {lotes.map((lote) => (
-                    <MenuItem key={lote.id} value={lote.id.toString()}>
-                      {lote.numero_lote} - Vence: {new Date(lote.fecha_vencimiento).toLocaleDateString()}
-                    </MenuItem>
-                  ))}
-                </Select>
+               <FormControl fullWidth error={!!errors.lote} required variant="outlined">
+      {/* MODIFICACIÓN CLAVE: Añadir shrink={true} y sx para el fondo */}
+      <InputLabel
+        id="lote-select-label"
+        shrink={true}
+        sx={{
+          // Opcional: igual que en MascotasList
+          // backgroundColor: (theme) => theme.palette.background.paper,
+          // px: 1,
+        }}
+      >
+        Lote de vacuna
+      </InputLabel>
+      <Select
+        labelId="lote-select-label"
+        id="lote-select"
+        name="lote"
+        value={formData.lote ? formData.lote.toString() : ''}
+        label="Lote de vacuna" // Sigue siendo crucial
+        onChange={handleSelectChange as any}
+        disabled={saving || lotes.length === 0}
+        displayEmpty
+        renderValue={(selectedValue) => {
+          if (!selectedValue || selectedValue === "0") {
+            return <em style={{ color: 'rgba(0, 0, 0, 0.6)' }}>Seleccionar lote</em>;
+          }
+          const loteSeleccionado = lotes.find(l => l.id.toString() === selectedValue);
+          const formatDateValue = (dateString: string, formatPattern: string) => {
+            try {
+                return format(new Date(dateString), formatPattern);
+            } catch (e) {
+                return 'Fecha Inválida';
+            }
+          };
+          return loteSeleccionado ? `${loteSeleccionado.numero_lote} (Vence: ${formatDateValue(loteSeleccionado.fecha_vencimiento, 'dd/MM/yy')})` : `ID: ${selectedValue}`;
+        }}
+        MenuProps={{ PaperProps: { sx: { maxHeight: 300, mt: 0.5, minWidth: 250 } } }}
+        sx={{ '& .MuiSelect-select': { minHeight: '1.4375em', py: '16.5px', overflow: 'hidden', textOverflow: 'ellipsis' } }}
+      >
+        <MenuItem value="" disabled><em>Seleccionar lote</em></MenuItem>
+        {lotes.map((l) => (
+          <MenuItem key={l.id} value={l.id.toString()}>
+            {l.numero_lote} - Vence: {l.fecha_vencimiento ? format(new Date(l.fecha_vencimiento), 'dd/MM/yy') : 'N/A'}
+          </MenuItem>
+        ))}
+      </Select>
                 {errors.lote && <FormHelperText>{errors.lote}</FormHelperText>}
               </FormControl>
             </Grid>
@@ -466,7 +526,7 @@ const RegistrarVacuna: React.FC = () => {
             <Grid item xs={12} md={6}>
               <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
                 <DatePicker
-                  label="Fecha de próxima aplicación"
+                  label="Fecha de Revacunación"
                   value={formData.fecha_proxima ? new Date(formData.fecha_proxima) : null}
                   onChange={(date) => handleDateChange(date, 'fecha_proxima')}
                   format="dd/MM/yyyy"

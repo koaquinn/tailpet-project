@@ -44,11 +44,46 @@ export const calculateAge = (fechaNacimiento: string): number => {
 /**
  * Valida un RUT chileno
  */
-export const validateRut = (rut: string): boolean => {
-  if (!rut) return false;
+/**
+ * Valida un RUT chileno incluyendo el dígito verificador.
+ * Acepta RUT con o sin puntos y con o sin guion.
+ * Ejemplos válidos: "12345678-9", "12.345.678-9", "123456789".
+ */
+export const validateRut = (rutCompleto: string): boolean => {
+  if (!rutCompleto || typeof rutCompleto !== 'string') return false;
+
+  // Limpiar el RUT de puntos y guion, y convertir K a mayúscula
+  const rutLimpio = rutCompleto.replace(/[^0-9kK]+/g, '').toUpperCase();
+
+  if (rutLimpio.length < 2) return false; // Debe tener al menos cuerpo y DV
+
+  let cuerpo = rutLimpio.slice(0, -1);
+  let dvIngresado = rutLimpio.slice(-1);
+
+  // Validar que el cuerpo solo contenga números
+  if (!/^\d+$/.test(cuerpo)) return false;
   
-  // Formato básico: 12345678-9 o 1234567-8
-  return /^[0-9]{7,8}-[0-9kK]$/.test(rut);
+  // Calcular dígito verificador esperado
+  let suma = 0;
+  let multiplo = 2;
+
+  for (let i = cuerpo.length - 1; i >= 0; i--) {
+    suma += parseInt(cuerpo.charAt(i), 10) * multiplo;
+    multiplo = multiplo === 7 ? 2 : multiplo + 1;
+  }
+
+  const dvEsperadoTemp = 11 - (suma % 11);
+  let dvEsperado: string;
+
+  if (dvEsperadoTemp === 11) {
+    dvEsperado = '0';
+  } else if (dvEsperadoTemp === 10) {
+    dvEsperado = 'K';
+  } else {
+    dvEsperado = dvEsperadoTemp.toString();
+  }
+
+  return dvEsperado === dvIngresado;
 };
 
 /**
